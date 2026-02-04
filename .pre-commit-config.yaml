@@ -1,0 +1,13 @@
+repos:
+  - repo: local
+    hooks:
+      - id: dotnet-format
+        name: dotnet format
+        entry: scripts/format.sh
+        language: system
+        pass_filenames: false
+      - id: dotnet-test
+        name: dotnet test
+        entry: scripts/test.sh
+        language: system
+        pass_filenames: false
