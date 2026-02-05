@@ -1,8 +1,12 @@
-using Yugo.Core.Entities;
+using Yugo.Core.Game;
 
 namespace Yugo.Core.Rules;
 
 public interface IMergeRule
 {
-    void Apply(IList<Entity> entities);
+    /// <summary>
+    /// Applies the merge rule to the specified level.
+    /// </summary>
+    /// <param name="level">The level to which the merge rule is applied.</param>
+    void Apply(Level level);
 }

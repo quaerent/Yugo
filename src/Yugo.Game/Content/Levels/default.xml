@@ -1,0 +1,20 @@
+<level width="12" height="8" gravity="Down">
+    <rules>
+        <merge type="movable" />
+        <win type="movable" />
+    </rules>
+    <entities>
+        <wall cells="0,0;1,0;2,0;3,0;4,0;5,0;6,0;7,0;8,0;9,0;10,0;11,0" />
+        <wall cells="0,7;1,7;2,7;3,7;4,7;5,7;6,7;7,7;8,7;9,7;10,7;11,7" />
+        <wall cells="0,1;0,2;0,3;0,4;0,5;0,6" />
+        <wall cells="11,1;11,2;11,3;11,4;11,5;11,6" />
+
+        <movable cluster="1" cells="2,2;3,2" />
+        <movable cluster="1" cells="4,2;5,2" />
+
+        <movable cluster="2" cells="6,4;7,4" />
+        <movable cluster="2" cells="8,4;9,4" />
+
+        <wall cells="5,5;6,5" />
+    </entities>
+</level>
