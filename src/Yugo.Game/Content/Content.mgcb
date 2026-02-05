@@ -13,3 +13,11 @@
 
 #---------------------------------- Content ---------------------------------#
 
+#begin Fonts/UiFont.spritefont
+/importer:FontDescriptionImporter
+/processor:FontDescriptionProcessor
+/processorParam:PremultiplyAlpha=True
+/processorParam:TextureFormat=Color
+/processorParam:DefaultCharacter=*
+/build:Fonts/UiFont.spritefont
+

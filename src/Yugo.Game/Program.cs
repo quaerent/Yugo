@@ -1,2 +1,2 @@
-﻿using var game = new Yugo.Game.Game1();
+﻿using var game = new Yugo.Game.Engine();
 game.Run();
