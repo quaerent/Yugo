@@ -142,7 +142,9 @@ public class LevelBasicsTests
         );
 
         var level = LevelXml.Parse(xml, null);
-        level.Move(new Point(2, 2), Direction.Left);
+        var entity = level.Grid[2, 2];
+        Assert.NotNull(entity);
+        level.Move(entity!, Direction.Left);
 
         Assert.IsType<Wall>(level.Grid[0, 2]);
         Assert.DoesNotContain(new Point(0, 2), level.Entities.OfType<Movable>().Single().OccupiedCells);

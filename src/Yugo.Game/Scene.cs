@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Yugo.Core.Entities;
 using Yugo.Core.Game;
 using Yugo.Core.Serialization;
 using Yugo.Game.Renderer;
@@ -18,6 +19,7 @@ public sealed class Scene
     private Point? _dragStartCell;
     private Point _dragStartScreen;
     private bool _dragConsumed;
+    private Entity? _dragEntity;
     private EndState _endState = EndState.None;
     private GridMetrics _gridMetrics;
     private readonly string _levelPath;
@@ -148,13 +150,13 @@ public sealed class Scene
             _dragStartCell = ScreenToCell(mouse.Position);
             _dragStartScreen = mouse.Position;
             _dragConsumed = false;
+            _dragEntity = _dragStartCell.HasValue ? _level.Grid[_dragStartCell.Value] : null;
         }
 
         if (
             mouse.LeftButton == ButtonState.Pressed
             && _previousMouse.LeftButton == ButtonState.Pressed
-            && _dragStartCell.HasValue
-            && !_dragConsumed
+            && _dragEntity != null
         )
         {
             var dx = mouse.X - _dragStartScreen.X;
@@ -168,8 +170,9 @@ public sealed class Scene
                         ? (dx >= 0 ? Direction.Right : Direction.Left)
                         : (dy <= 0 ? Direction.Up : Direction.Down);
 
-                _level.Move(_dragStartCell.Value, direction);
+                _level.Move(_dragEntity, direction);
                 _dragConsumed = true;
+                _dragStartScreen = mouse.Position;
                 UpdateEndState();
             }
         }
@@ -179,13 +182,14 @@ public sealed class Scene
             && _previousMouse.LeftButton == ButtonState.Pressed
         )
         {
-            if (_dragStartCell.HasValue && !_dragConsumed)
+            if (_dragEntity != null && !_dragConsumed)
             {
-                _level.Click(_dragStartCell.Value);
+                _level.Click(_dragEntity);
                 UpdateEndState();
             }
 
             _dragStartCell = null;
+            _dragEntity = null;
         }
 
         _previousMouse = mouse;
@@ -219,6 +223,7 @@ public sealed class Scene
         _level.Start();
         _dragStartCell = null;
         _dragConsumed = false;
+        _dragEntity = null;
         _endState = EndState.None;
         UpdateEndState();
     }

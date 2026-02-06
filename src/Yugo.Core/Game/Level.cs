@@ -11,8 +11,8 @@ public class Level(
     IEnumerable<IWinRule> winRules
 )
 {
-    public readonly Grid Grid = new Grid(width, height);
-    public List<Entity> Entities = new List<Entity>();
+    public readonly Grid Grid = new(width, height);
+    public List<Entity> Entities = [];
     public List<IMergeRule> MergeRules = [.. mergeRules];
     public List<IWinRule> WinRules = [.. winRules];
     public Direction Gravity = Direction.Down;
@@ -114,28 +114,22 @@ public class Level(
     }
 
     /// <summary>
-    /// Handles a click on the given cell.
+    /// Handles a click on the given entity.
     /// </summary>
-    /// <param name="cell">The cell that was clicked.</param>
-    public void Click(Point cell)
+    /// <param name="entity">The entity that was clicked.</param>
+    public void Click(Entity entity)
     {
-        var entity = Grid[cell];
-        if (entity == null)
-            return;
         entity.OnClick();
         RunUntilStable();
     }
 
     /// <summary>
-    /// Moves the entity occupying the given cell in the specified direction.
+    /// Moves the entity in the specified direction.
     /// </summary>
-    /// <param name="cell">The cell of the entity to move.</param>
+    /// <param name="entity">The entity to move.</param>
     /// <param name="dir">The direction to move the entity.</param>
-    public void Move(Point cell, Direction dir)
+    public void Move(Entity entity, Direction dir)
     {
-        var entity = Grid[cell];
-        if (entity == null)
-            return;
         entity.OnMove(dir);
         RunUntilStable();
     }
