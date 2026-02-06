@@ -37,6 +37,9 @@ public class Level(
         while (pushQueue.Count > 0)
         {
             var current = pushQueue.Dequeue();
+            if (pushed.Contains(current))
+                continue;
+
             var newCells = current.TryPush(dir);
             if (newCells == null)
             {

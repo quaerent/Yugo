@@ -1,10 +1,11 @@
 using System.Xml.Linq;
 using Microsoft.Xna.Framework;
+using Xunit;
 using Yugo.Core.Entities;
 using Yugo.Core.Game;
 using Yugo.Core.Rules;
 using Yugo.Core.Serialization;
-using Xunit;
+
 
 namespace Yugo.Core.Tests;
 
@@ -122,6 +123,23 @@ public class LevelBasicsTests
     }
 
     [Fact]
+    public void TryPush_PropagatesThroughWideEntity()
+    {
+        var level = CreateLevel(6, 2);
+        var pusher = new Movable(level, [new Point(1, 0), new Point(1, 1)], 1);
+        var target = new Movable(level, [new Point(2, 0), new Point(2, 1)], 2);
+        level.AddEntity(pusher);
+        level.AddEntity(target);
+
+        level.TryPush(pusher, Direction.Right);
+
+        Assert.Same(pusher, level.Grid[2, 0]);
+        Assert.Same(pusher, level.Grid[2, 1]);
+        Assert.Same(target, level.Grid[3, 0]);
+        Assert.Same(target, level.Grid[3, 1]);
+    }
+
+    [Fact]
     public void Move_Left_DoesNotOverwriteWalls_WhenPushBlocked()
     {
         var xml = new XElement(
@@ -136,6 +154,7 @@ public class LevelBasicsTests
             ),
             new XElement(
                 "entities",
+                new XElement("wall", new XAttribute("cells", "0,0;1,0;2,0;3,0;4,0;5,0;6,0;7,0;8,0;9,0;10,0;11,0")),
                 new XElement("wall", new XAttribute("cells", "0,1;0,2;0,3;0,4;0,5;0,6")),
                 new XElement("movable", new XAttribute("cluster", "1"), new XAttribute("cells", "2,2;3,2"))
             )

@@ -64,20 +64,20 @@ public static class LevelXml
             switch (name)
             {
                 case "wall":
-                {
-                    var cells = ParseCells(element);
-                    var wall = new Wall(level, cells);
-                    level.AddEntity(wall);
-                    break;
-                }
+                    {
+                        var cells = ParseCells(element);
+                        var wall = new Wall(level, cells);
+                        level.AddEntity(wall);
+                        break;
+                    }
                 case "movable":
-                {
-                    var clusterId = ReadRequiredInt(element, "cluster", "clusterId");
-                    var cells = ParseCells(element);
-                    var movable = new Movable(level, cells, clusterId);
-                    level.AddEntity(movable);
-                    break;
-                }
+                    {
+                        var clusterId = ReadRequiredInt(element, "cluster", "clusterId");
+                        var cells = ParseCells(element);
+                        var movable = new Movable(level, cells, clusterId);
+                        level.AddEntity(movable);
+                        break;
+                    }
                 default:
                     throw new InvalidOperationException(
                         $"Unknown entity type '{element.Name.LocalName}'."
