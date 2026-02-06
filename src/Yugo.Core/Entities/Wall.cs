@@ -1,16 +1,17 @@
 using Microsoft.Xna.Framework;
 using Yugo.Core.Game;
+using Yugo.Core.Serialization;
 
 namespace Yugo.Core.Entities;
 
 /// <summary>
 /// A wall entity that cannot be moved or pushed.
 /// </summary>
-
-public class Wall : Entity
+[TypeId("wall", "Wall")]
+public class Wall(Level level, IEnumerable<Point> occupiedCells) : Entity(level, occupiedCells)
 {
-    public Wall(Level level, IEnumerable<Point> occupiedCells)
-        : base(level, occupiedCells) { }
+    public Wall(Level level)
+        : this(level, []) { }
 
     public override void OnClick() { }
 

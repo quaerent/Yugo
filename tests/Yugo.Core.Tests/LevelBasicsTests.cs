@@ -6,7 +6,6 @@ using Yugo.Core.Game;
 using Yugo.Core.Rules;
 using Yugo.Core.Serialization;
 
-
 namespace Yugo.Core.Tests;
 
 public class LevelBasicsTests
@@ -100,15 +99,16 @@ public class LevelBasicsTests
             new XAttribute("width", "5"),
             new XAttribute("height", "4"),
             new XAttribute("gravity", "Down"),
-            new XElement(
-                "rules",
-                new XElement("merge", new XAttribute("type", "movable")),
-                new XElement("win", new XAttribute("type", "movable"))
-            ),
+            new XElement("merge", new XElement("merge-movable")),
+            new XElement("win", new XElement("win-movable")),
             new XElement(
                 "entities",
                 new XElement("wall", new XAttribute("cells", "0,0;1,0")),
-                new XElement("movable", new XAttribute("cluster", "1"), new XAttribute("cells", "2,1"))
+                new XElement(
+                    "movable",
+                    new XAttribute("cluster", "1"),
+                    new XAttribute("cells", "2,1")
+                )
             )
         );
 
@@ -147,16 +147,20 @@ public class LevelBasicsTests
             new XAttribute("width", "12"),
             new XAttribute("height", "8"),
             new XAttribute("gravity", "Down"),
-            new XElement(
-                "rules",
-                new XElement("merge", new XAttribute("type", "movable")),
-                new XElement("win", new XAttribute("type", "movable"))
-            ),
+            new XElement("merge", new XElement("merge-movable")),
+            new XElement("win", new XElement("win-movable")),
             new XElement(
                 "entities",
-                new XElement("wall", new XAttribute("cells", "0,0;1,0;2,0;3,0;4,0;5,0;6,0;7,0;8,0;9,0;10,0;11,0")),
+                new XElement(
+                    "wall",
+                    new XAttribute("cells", "0,0;1,0;2,0;3,0;4,0;5,0;6,0;7,0;8,0;9,0;10,0;11,0")
+                ),
                 new XElement("wall", new XAttribute("cells", "0,1;0,2;0,3;0,4;0,5;0,6")),
-                new XElement("movable", new XAttribute("cluster", "1"), new XAttribute("cells", "2,2;3,2"))
+                new XElement(
+                    "movable",
+                    new XAttribute("cluster", "1"),
+                    new XAttribute("cells", "2,2;3,2")
+                )
             )
         );
 
@@ -166,7 +170,10 @@ public class LevelBasicsTests
         level.Move(entity!, Direction.Left);
 
         Assert.IsType<Wall>(level.Grid[0, 2]);
-        Assert.DoesNotContain(new Point(0, 2), level.Entities.OfType<Movable>().Single().OccupiedCells);
+        Assert.DoesNotContain(
+            new Point(0, 2),
+            level.Entities.OfType<Movable>().Single().OccupiedCells
+        );
     }
 
     private static Level CreateLevel(int width, int height)

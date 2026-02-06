@@ -16,6 +16,7 @@ public sealed class Scene
     private readonly Engine _engine;
     private Level _level;
     private MouseState _previousMouse;
+    private KeyboardState _previousKeyboard;
     private Point? _dragStartCell;
     private Point _dragStartScreen;
     private bool _dragConsumed;
@@ -50,6 +51,7 @@ public sealed class Scene
     {
         if (_endState == EndState.None)
             HandleInput();
+        UpdateEndState();
     }
 
     public void Render()
@@ -141,6 +143,18 @@ public sealed class Scene
     private void HandleInput()
     {
         var mouse = Mouse.GetState();
+        var keyboard = Keyboard.GetState();
+
+        if (IsKeyPressed(keyboard, Keys.Back))
+        {
+            _level.Undo();
+            UpdateEndState();
+        }
+        else if (IsKeyPressed(keyboard, Keys.R))
+        {
+            _level.Retry();
+            UpdateEndState();
+        }
 
         if (
             mouse.LeftButton == ButtonState.Pressed
@@ -193,6 +207,12 @@ public sealed class Scene
         }
 
         _previousMouse = mouse;
+        _previousKeyboard = keyboard;
+    }
+
+    private bool IsKeyPressed(KeyboardState current, Keys key)
+    {
+        return current.IsKeyDown(key) && !_previousKeyboard.IsKeyDown(key);
     }
 
     private GridMetrics GetGridMetrics()

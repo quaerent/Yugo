@@ -4,7 +4,12 @@ namespace Yugo.Game.Renderer;
 
 public static class RenderUtil
 {
-    public static void DrawEntityOutline(Scene scene, IEnumerable<Point> cells, Color color, int thickness)
+    public static void DrawEntityOutline(
+        Scene scene,
+        IEnumerable<Point> cells,
+        Color color,
+        int thickness
+    )
     {
         var cellSet = cells as HashSet<Point> ?? new HashSet<Point>(cells);
 

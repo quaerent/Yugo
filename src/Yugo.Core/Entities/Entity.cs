@@ -1,21 +1,28 @@
 using Microsoft.Xna.Framework;
 using Yugo.Core.Game;
+using Yugo.Core.Serialization;
 
 namespace Yugo.Core.Entities;
 
 /// <summary>
 /// Base class for all entities in the game.
 /// </summary>
-public abstract class Entity
+public abstract class Entity : ISnapshotSerializable
 {
     public readonly Level Level;
     private List<Point> _occupiedCells = [];
     public IReadOnlyList<Point> OccupiedCells => _occupiedCells;
     internal List<Point> OccupiedCellsInternal => _occupiedCells;
+    public bool Dead { get; private set; }
 
     protected Grid Grid
     {
         get => Level.Grid;
+    }
+
+    protected Entity(Level level)
+    {
+        Level = level;
     }
 
     public Entity(Level level, IEnumerable<Point> occupiedCells)
@@ -31,6 +38,8 @@ public abstract class Entity
     /// <exception cref="InvalidOperationException"></exception>
     protected void UpdateOccupiedCells(IEnumerable<Point> newCells)
     {
+        if (Dead)
+            return;
         foreach (var cell in _occupiedCells)
         {
             if (!Grid.IsInside(cell))
@@ -50,6 +59,8 @@ public abstract class Entity
 
     protected void Translate(Point offset)
     {
+        if (Dead)
+            return;
         var newCells = OccupiedCells.Select(p => p + offset);
         UpdateOccupiedCells(newCells);
     }
@@ -69,6 +80,8 @@ public abstract class Entity
             if (!Grid.IsInside(target))
                 continue;
             var occupant = Grid[target];
+            if (occupant != null && occupant.Dead)
+                continue;
             if (occupant != null && occupant != this && !obstacles.Contains(occupant))
                 obstacles.Add(occupant);
         }
@@ -99,6 +112,11 @@ public abstract class Entity
                     break;
                 }
                 var occupant = Grid[target];
+                if (occupant != null && occupant.Dead)
+                {
+                    move++;
+                    continue;
+                }
                 if (occupant == this)
                 {
                     move = int.MaxValue;
@@ -154,4 +172,51 @@ public abstract class Entity
     /// Updates the entity's state.
     /// </summary>
     public abstract void Update();
+
+    public Snapshot Snapshot()
+    {
+        var data = new Dictionary<string, string>();
+        Serialize(data);
+        return new Snapshot(TypeIdAttribute.GetId(GetType()), data);
+    }
+
+    public void ApplySnapshot(Snapshot snapshot)
+    {
+        Deserialize(snapshot.Data);
+    }
+
+    public virtual void Serialize(Dictionary<string, string> data)
+    {
+        data["cells"] = SnapshotHelpers.SerializeCells(OccupiedCells);
+        data["dead"] = Dead ? "1" : "0";
+    }
+
+    public virtual void Deserialize(Dictionary<string, string> data)
+    {
+        if (!data.TryGetValue("cells", out var cellsRaw))
+            throw new InvalidOperationException("Missing required field 'cells'.");
+        var cells = SnapshotHelpers.DeserializeCells(cellsRaw);
+        UpdateOccupiedCells(cells);
+
+        if (!data.TryGetValue("dead", out var deadRaw))
+            throw new InvalidOperationException("Missing required field 'dead'.");
+        Dead = deadRaw == "1";
+    }
+
+    /// <summary>
+    /// Mark the entity as dead and remove it from the grid.
+    /// </summary>
+    protected void MarkDead()
+    {
+        if (Dead)
+            return;
+
+        Dead = true;
+        foreach (var cell in _occupiedCells)
+        {
+            if (Grid.IsInside(cell) && ReferenceEquals(Grid[cell], this))
+                Grid[cell] = null;
+        }
+        _occupiedCells.Clear();
+    }
 }

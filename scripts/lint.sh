@@ -3,4 +3,4 @@ set -euo pipefail
 
 dotnet tool restore >/dev/null 2>&1 || true
 
-dotnet csharpier format .
+dotnet csharpier check .

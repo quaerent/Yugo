@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Yugo.Core.Entities;
 using Yugo.Core.Rules;
+using Yugo.Core.Serialization;
 
 namespace Yugo.Core.Game;
 
@@ -16,6 +17,8 @@ public class Level(
     public List<IMergeRule> MergeRules = [.. mergeRules];
     public List<IWinRule> WinRules = [.. winRules];
     public Direction Gravity = Direction.Down;
+    private readonly Stack<LevelState> _history = new();
+    private LevelState? _initialState;
 
     const int MaxIterations = 100;
 
@@ -29,6 +32,8 @@ public class Level(
 
     public void TryPush(Entity entity, Direction dir)
     {
+        if (entity.Dead)
+            return;
         var testGrid = new Grid(Grid.Width, Grid.Height);
         var pushQueue = new Queue<Entity>([entity]);
         var pushed = new HashSet<Entity>();
@@ -37,6 +42,11 @@ public class Level(
         while (pushQueue.Count > 0)
         {
             var current = pushQueue.Dequeue();
+            if (current.Dead)
+            {
+                success = false;
+                break;
+            }
             if (pushed.Contains(current))
                 continue;
 
@@ -63,6 +73,8 @@ public class Level(
 
                 // check for occupant in the actual grid
                 var occupant = Grid[cell];
+                if (occupant != null && occupant.Dead)
+                    continue;
                 if (occupant != null && occupant != current && !pushed.Contains(occupant))
                 {
                     // need to push the occupant as well
@@ -114,6 +126,7 @@ public class Level(
     public void Start()
     {
         RunUntilStable();
+        _initialState ??= CaptureState();
     }
 
     /// <summary>
@@ -122,6 +135,9 @@ public class Level(
     /// <param name="entity">The entity that was clicked.</param>
     public void Click(Entity entity)
     {
+        if (entity.Dead)
+            return;
+        PushHistory();
         entity.OnClick();
         RunUntilStable();
     }
@@ -133,8 +149,28 @@ public class Level(
     /// <param name="dir">The direction to move the entity.</param>
     public void Move(Entity entity, Direction dir)
     {
+        if (entity.Dead)
+            return;
+        PushHistory();
         entity.OnMove(dir);
         RunUntilStable();
+    }
+
+    public void Undo()
+    {
+        if (_history.Count == 0)
+            return;
+
+        ApplyState(_history.Pop());
+    }
+
+    public void Retry()
+    {
+        if (_initialState == null)
+            return;
+
+        PushHistory();
+        ApplyState(_initialState);
     }
 
     private void RunUntilStable()
@@ -146,7 +182,7 @@ public class Level(
             if (count++ >= MaxIterations)
                 throw new InvalidOperationException("Max iterations reached while updating level.");
 
-            var entitiesToUpdate = Entities.Where(e => e.NeedsUpdate()).ToList();
+            var entitiesToUpdate = Entities.Where(e => !e.Dead && e.NeedsUpdate()).ToList();
             if (entitiesToUpdate.Count == 0)
                 break;
 
@@ -201,5 +237,71 @@ public class Level(
             }
         }
         return allSatisfied;
+    }
+
+    private void PushHistory()
+    {
+        _history.Push(CaptureState());
+    }
+
+    private LevelState CaptureState()
+    {
+        SnapshotFactory.EnsureRegistered(typeof(Level).Assembly);
+        var mergeSnapshots = MergeRules
+            .OfType<ISnapshotSerializable>()
+            .Select(r => new Snapshot(TypeIdAttribute.GetId(r.GetType()), SerializeRule(r)))
+            .ToList();
+        var winSnapshots = WinRules
+            .OfType<ISnapshotSerializable>()
+            .Select(r => new Snapshot(TypeIdAttribute.GetId(r.GetType()), SerializeRule(r)))
+            .ToList();
+        var entitySnapshots = Entities.Select(e => e.Snapshot()).ToList();
+        return new LevelState(Gravity, mergeSnapshots, winSnapshots, entitySnapshots);
+    }
+
+    private void ApplyState(LevelState state)
+    {
+        foreach (var point in Grid.Points())
+        {
+            Grid[point] = null;
+        }
+
+        Entities.Clear();
+        Gravity = state.Gravity;
+
+        SnapshotFactory.EnsureRegistered(typeof(Level).Assembly);
+        MergeRules = state
+            .MergeRules.Select(s =>
+            {
+                var created = SnapshotFactory.Create<ISnapshotSerializable>(s);
+                return created as IMergeRule
+                    ?? throw new InvalidOperationException(
+                        $"Type '{s.TypeId}' is not a merge rule."
+                    );
+            })
+            .ToList();
+        WinRules = state
+            .WinRules.Select(s =>
+            {
+                var created = SnapshotFactory.Create<ISnapshotSerializable>(s);
+                return created as IWinRule
+                    ?? throw new InvalidOperationException($"Type '{s.TypeId}' is not a win rule.");
+            })
+            .ToList();
+
+        foreach (var snapshot in state.Entities)
+        {
+            var created = SnapshotFactory.Create<ISnapshotSerializable>(snapshot, this);
+            if (created is not Entity entity)
+                throw new InvalidOperationException($"Type '{snapshot.TypeId}' is not an Entity.");
+            Entities.Add(entity);
+        }
+    }
+
+    private static Dictionary<string, string> SerializeRule(ISnapshotSerializable rule)
+    {
+        var data = new Dictionary<string, string>();
+        rule.Serialize(data);
+        return data;
     }
 }

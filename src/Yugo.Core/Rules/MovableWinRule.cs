@@ -1,11 +1,13 @@
 using Yugo.Core.Entities;
 using Yugo.Core.Game;
+using Yugo.Core.Serialization;
 
 namespace Yugo.Core.Rules;
 
-public class MovableWinRule : IWinRule
+[TypeId("win-movable", "Movable Win")]
+public class MovableWinRule : WinRuleBase
 {
-    public WinRuleResult IsSatisfied(Level level)
+    public override WinRuleResult IsSatisfied(Level level)
     {
         var appearedClusterIds = new HashSet<int>();
         foreach (var entity in level.Entities.OfType<Movable>())

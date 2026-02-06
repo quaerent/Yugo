@@ -1,17 +1,17 @@
 using Microsoft.Xna.Framework;
 using Yugo.Core.Game;
+using Yugo.Core.Serialization;
 
 namespace Yugo.Core.Entities;
 
-public class Movable : Entity
+[TypeId("movable", "Movable Block")]
+public class Movable(Level level, IEnumerable<Point> occupiedCells, int clusterId)
+    : Entity(level, occupiedCells)
 {
-    public int ClusterId;
+    public int ClusterId = clusterId;
 
-    public Movable(Level level, IEnumerable<Point> occupiedCells, int clusterId)
-        : base(level, occupiedCells)
-    {
-        ClusterId = clusterId;
-    }
+    public Movable(Level level)
+        : this(level, [], -1) { }
 
     public override void OnClick() { }
 
@@ -45,13 +45,7 @@ public class Movable : Entity
         if (maxFreeMove == int.MaxValue)
         {
             // fall out of the grid
-            Level.Entities.Remove(this);
-            foreach (var cell in OccupiedCells)
-            {
-                if (!Grid.IsInside(cell))
-                    continue;
-                Grid[cell] = null;
-            }
+            MarkDead();
         }
         else if (maxFreeMove > 0)
         {
@@ -60,5 +54,21 @@ public class Movable : Entity
             Translate(new Point(vec.X * maxFreeMove, vec.Y * maxFreeMove));
             Level.TryPush(this, Level.Gravity);
         }
+    }
+
+    public override void Serialize(Dictionary<string, string> data)
+    {
+        base.Serialize(data);
+        data["clusterId"] = ClusterId.ToString();
+    }
+
+    public override void Deserialize(Dictionary<string, string> data)
+    {
+        base.Deserialize(data);
+        if (!data.TryGetValue("clusterId", out var raw))
+            throw new InvalidOperationException("Missing required field 'clusterId'.");
+        if (!int.TryParse(raw, out var value))
+            throw new InvalidOperationException("Invalid integer for field 'clusterId'.");
+        ClusterId = value;
     }
 }

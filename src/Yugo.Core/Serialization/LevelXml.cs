@@ -48,7 +48,7 @@ public static class LevelXml
 
         var mergeRules = new List<IMergeRule>();
         var winRules = new List<IWinRule>();
-        ParseRules(root.Element("rules"), mergeRules, winRules);
+        ParseRules(root.Element("merge"), root.Element("win"), mergeRules, winRules);
 
         var levelFactory = factory ?? DefaultFactory;
         var level = levelFactory(width, height, mergeRules, winRules);
@@ -58,31 +58,14 @@ public static class LevelXml
             root.Element("entities")
             ?? throw new InvalidOperationException("Level XML must contain <entities>.");
 
+        SnapshotFactory.EnsureRegistered(typeof(LevelXml).Assembly);
         foreach (var element in entitiesElement.Elements())
         {
-            var name = element.Name.LocalName.ToLowerInvariant();
-            switch (name)
-            {
-                case "wall":
-                    {
-                        var cells = ParseCells(element);
-                        var wall = new Wall(level, cells);
-                        level.AddEntity(wall);
-                        break;
-                    }
-                case "movable":
-                    {
-                        var clusterId = ReadRequiredInt(element, "cluster", "clusterId");
-                        var cells = ParseCells(element);
-                        var movable = new Movable(level, cells, clusterId);
-                        level.AddEntity(movable);
-                        break;
-                    }
-                default:
-                    throw new InvalidOperationException(
-                        $"Unknown entity type '{element.Name.LocalName}'."
-                    );
-            }
+            var snapshot = ParseEntitySnapshot(element);
+            var created = SnapshotFactory.Create<ISnapshotSerializable>(snapshot, level);
+            if (created is not Entity entity)
+                throw new InvalidOperationException($"Type '{snapshot.TypeId}' is not an Entity.");
+            level.AddEntity(entity);
         }
 
         return level;
@@ -99,49 +82,84 @@ public static class LevelXml
     }
 
     private static void ParseRules(
-        XElement? rulesElement,
+        XElement? mergeElement,
+        XElement? winElement,
         List<IMergeRule> mergeRules,
         List<IWinRule> winRules
     )
     {
-        if (rulesElement == null)
-            return;
+        SnapshotFactory.EnsureRegistered(typeof(LevelXml).Assembly);
 
-        foreach (var element in rulesElement.Elements())
+        if (mergeElement != null)
         {
-            var name = element.Name.LocalName.ToLowerInvariant();
-            switch (name)
+            foreach (var element in mergeElement.Elements())
             {
-                case "merge":
-                    mergeRules.Add(CreateMergeRule(ReadRequiredString(element, "type")));
-                    break;
-                case "win":
-                    winRules.Add(CreateWinRule(ReadRequiredString(element, "type")));
-                    break;
-                default:
+                var created = SnapshotFactory.Create<ISnapshotSerializable>(
+                    ParseRuleSnapshot(element)
+                );
+                if (created is not IMergeRule mergeRule)
                     throw new InvalidOperationException(
-                        $"Unknown rule element '{element.Name.LocalName}'."
+                        $"Type '{element.Name.LocalName}' is not a merge rule."
                     );
+                mergeRules.Add(mergeRule);
+            }
+        }
+
+        if (winElement != null)
+        {
+            foreach (var element in winElement.Elements())
+            {
+                var created = SnapshotFactory.Create<ISnapshotSerializable>(
+                    ParseRuleSnapshot(element)
+                );
+                if (created is not IWinRule winRule)
+                    throw new InvalidOperationException(
+                        $"Type '{element.Name.LocalName}' is not a win rule."
+                    );
+                winRules.Add(winRule);
             }
         }
     }
 
-    private static IMergeRule CreateMergeRule(string type)
+    private static Snapshot ParseRuleSnapshot(XElement element)
     {
-        return type.ToLowerInvariant() switch
+        var data = new Dictionary<string, string>();
+        foreach (var attr in element.Attributes())
         {
-            "movable" => new MovableMergeRule(),
-            _ => throw new InvalidOperationException($"Unknown merge rule type '{type}'."),
-        };
+            data[attr.Name.LocalName] = attr.Value;
+        }
+
+        return new Snapshot(element.Name.LocalName.ToLowerInvariant(), data);
     }
 
-    private static IWinRule CreateWinRule(string type)
+    private static Snapshot ParseEntitySnapshot(XElement element)
     {
-        return type.ToLowerInvariant() switch
+        var typeId = element.Name.LocalName.ToLowerInvariant();
+        var data = new Dictionary<string, string>();
+
+        var cellsAttribute = element.Attribute("cells")?.Value;
+        if (!string.IsNullOrWhiteSpace(cellsAttribute))
         {
-            "movable" => new MovableWinRule(),
-            _ => throw new InvalidOperationException($"Unknown win rule type '{type}'."),
-        };
+            data["cells"] = cellsAttribute;
+        }
+        else
+        {
+            var cells = element.Elements("cell").Select(ParseCellElement).ToList();
+            if (cells.Count == 0)
+                throw new InvalidOperationException("Entity must define at least one cell.");
+            data["cells"] = SnapshotHelpers.SerializeCells(cells);
+        }
+
+        if (typeId == "movable")
+        {
+            var clusterId = ReadRequiredInt(element, "cluster", "clusterId");
+            data["clusterId"] = clusterId.ToString();
+        }
+
+        var deadRaw = element.Attribute("dead")?.Value;
+        data["dead"] = string.IsNullOrWhiteSpace(deadRaw) ? "0" : deadRaw;
+
+        return new Snapshot(typeId, data);
     }
 
     private static List<Point> ParseCells(XElement element)

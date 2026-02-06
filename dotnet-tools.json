@@ -2,11 +2,12 @@
   "version": 1,
   "isRoot": true,
   "tools": {
-    "dotnet-format": {
-      "version": "8.0.453",
+    "csharpier": {
+      "version": "1.2.5",
       "commands": [
-        "dotnet-format"
-      ]
+        "csharpier"
+      ],
+      "rollForward": false
     }
   }
 }
