@@ -52,9 +52,11 @@ public sealed class MenuScreen : IScreen
     public void DrawGui()
     {
         var viewport = _engine.GraphicsDevice.Viewport;
-        // Position buttons below the logo
+        // Position buttons below the logo, snapped to integer pixels to avoid blur
+        var posX = (int)(viewport.Width / 2f);
+        var posY = 220;
         ImGui.SetNextWindowPos(
-            new System.Numerics.Vector2(viewport.Width / 2f, 220),
+            new System.Numerics.Vector2(posX, posY),
             ImGuiCond.Always,
             new System.Numerics.Vector2(0.5f, 0)
         );
@@ -70,7 +72,7 @@ public sealed class MenuScreen : IScreen
 
         if (ImGui.Begin("MainMenu", flags))
         {
-            ImGui.SetWindowFontScale(1.2f);
+            // Removed SetWindowFontScale(1.2f) as it causes blur on bitmapped fonts
 
             if (ImGui.Button("OPEN LEVEL", new System.Numerics.Vector2(-1, 60)))
             {

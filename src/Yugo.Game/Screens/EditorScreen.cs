@@ -22,6 +22,7 @@ public sealed class EditorScreen : IScreen
     private int _newWidth = 30;
     private int _newHeight = 18;
     private bool _showResizeWarning = false;
+    private bool _isDirty = false;
 
     public EditorScreen(Engine engine, Level level, string? levelPath)
     {
@@ -44,7 +45,7 @@ public sealed class EditorScreen : IScreen
             SaveLevel();
 
         var viewport = _engine.GraphicsDevice.Viewport;
-        _gridView.Update(new Rectangle(300, 0, viewport.Width - 300, viewport.Height));
+        _gridView.Update(new Rectangle(300, 0, viewport.Width - 450, viewport.Height));
 
         var io = ImGui.GetIO();
         if (!io.WantCaptureMouse)
@@ -92,6 +93,7 @@ public sealed class EditorScreen : IScreen
         if (occupant != null && occupant != entity)
             RemoveCellFromEntity(occupant, cell);
         entity.ReplaceCells(entity.OccupiedCells.Append(cell));
+        _isDirty = true;
     }
 
     private void RemoveCellFromEntity(Entity entity, Point cell)
@@ -109,6 +111,7 @@ public sealed class EditorScreen : IScreen
         {
             entity.ReplaceCells(remaining);
         }
+        _isDirty = true;
     }
 
     public void Render()
@@ -120,32 +123,49 @@ public sealed class EditorScreen : IScreen
     public void DrawGui()
     {
         var viewport = _engine.GraphicsDevice.Viewport;
+
         ImGui.SetNextWindowPos(System.Numerics.Vector2.Zero);
         ImGui.SetNextWindowSize(new System.Numerics.Vector2(300, viewport.Height));
-
         if (
             ImGui.Begin(
                 "Inspector",
-                ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse
+                ImGuiWindowFlags.NoMove
+                    | ImGuiWindowFlags.NoResize
+                    | ImGuiWindowFlags.NoCollapse
+                    | ImGuiWindowFlags.NoSavedSettings
             )
         )
         {
             DrawHeader();
             ImGui.Separator();
 
-            if (ImGui.CollapsingHeader("Properties", ImGuiTreeNodeFlags.DefaultOpen))
-                DrawProperties();
-
-            ImGui.Spacing();
             if (ImGui.CollapsingHeader("Level Settings", ImGuiTreeNodeFlags.DefaultOpen))
                 DrawLevelSettings();
 
             ImGui.Spacing();
-            if (ImGui.CollapsingHeader("Entities", ImGuiTreeNodeFlags.DefaultOpen))
-                DrawEntityList();
+            if (ImGui.CollapsingHeader("Properties", ImGuiTreeNodeFlags.DefaultOpen))
+                DrawProperties();
 
             ImGui.End();
         }
+
+        // RIGHT SIDEBAR: Entity List (Width reduced to 150px)
+        ImGui.SetNextWindowPos(new System.Numerics.Vector2(viewport.Width - 150, 0));
+        ImGui.SetNextWindowSize(new System.Numerics.Vector2(150, viewport.Height));
+        if (
+            ImGui.Begin(
+                "Entities",
+                ImGuiWindowFlags.NoMove
+                    | ImGuiWindowFlags.NoResize
+                    | ImGuiWindowFlags.NoCollapse
+                    | ImGuiWindowFlags.NoSavedSettings
+            )
+        )
+        {
+            DrawEntityList();
+            ImGui.End();
+        }
+
         DrawResizeModal();
     }
 
@@ -154,10 +174,13 @@ public sealed class EditorScreen : IScreen
         ImGui.TextUnformatted(
             string.IsNullOrWhiteSpace(_levelPath) ? "NEW LEVEL" : Path.GetFileName(_levelPath)
         );
-        if (ImGui.Button("SAVE", new System.Numerics.Vector2(135, 30)))
+
+        string saveLabel = _isDirty ? "SAVE*" : "SAVE";
+        if (ImGui.Button(saveLabel, new System.Numerics.Vector2(130, 30)))
             SaveLevel();
+
         ImGui.SameLine();
-        if (ImGui.Button("EXIT", new System.Numerics.Vector2(135, 30)))
+        if (ImGui.Button("EXIT", new System.Numerics.Vector2(130, 30)))
             _engine.LoadMenu();
     }
 
@@ -168,10 +191,14 @@ public sealed class EditorScreen : IScreen
             var newEnt = new Wall(_level);
             _level.AddEntity(newEnt);
             _selectedEntity = newEnt;
+            _isDirty = true;
         }
 
         ImGui.Spacing();
-        if (ImGui.BeginChild("List", new System.Numerics.Vector2(-1, 250), ImGuiChildFlags.None))
+        ImGui.Separator();
+        ImGui.Spacing();
+
+        if (ImGui.BeginChild("List", new System.Numerics.Vector2(-1, 0), ImGuiChildFlags.None))
         {
             for (int i = 0; i < _level.Entities.Count; i++)
             {
@@ -205,24 +232,43 @@ public sealed class EditorScreen : IScreen
 
         var ent = _selectedEntity;
 
-        // 1. Type Selection (Converts the CURRENT entity)
         int typeIdx = GetEntityTypeIndex(ent);
         string[] types = ["Wall", "Movable", "Piston"];
         if (ImGui.Combo("Entity Type", ref typeIdx, types, types.Length))
         {
             ConvertSelectedEntity(typeIdx);
-            return; // Exit early as _selectedEntity has changed
+            _isDirty = true;
+            return;
         }
 
         ImGui.Separator();
         ImGui.Spacing();
 
-        // 2. Specific Properties
         if (ent is ClusterEntity ce)
         {
             int cId = ce.ClusterId;
-            if (ImGui.SliderInt("Cluster ID", ref cId, 1, 9))
+            // Draw a color preview box before or after the slider
+            var color = RenderUtil.GetClusterColor(cId);
+            var imguiColor = new System.Numerics.Vector4(
+                color.R / 255f,
+                color.G / 255f,
+                color.B / 255f,
+                1.0f
+            );
+
+            ImGui.ColorButton(
+                "##ClusterPreview",
+                imguiColor,
+                ImGuiColorEditFlags.NoTooltip,
+                new System.Numerics.Vector2(20, 20)
+            );
+            ImGui.SameLine();
+
+            if (ImGui.SliderInt("Cluster ID", ref cId, 1, 5))
+            {
                 ce.ClusterId = cId;
+                _isDirty = true;
+            }
         }
 
         if (ent is Piston p)
@@ -230,7 +276,10 @@ public sealed class EditorScreen : IScreen
             int axisIdx = (int)p.Axis;
             string[] axes = ["Horizontal", "Vertical"];
             if (ImGui.Combo("Axis", ref axisIdx, axes, axes.Length))
+            {
                 p.Axis = (Piston.Orientation)axisIdx;
+                _isDirty = true;
+            }
         }
 
         ImGui.Spacing();
@@ -239,6 +288,7 @@ public sealed class EditorScreen : IScreen
         {
             _level.RemoveEntity(ent);
             _selectedEntity = null;
+            _isDirty = true;
         }
     }
 
@@ -261,7 +311,6 @@ public sealed class EditorScreen : IScreen
         var oldEnt = _selectedEntity;
         var cells = oldEnt.OccupiedCells.ToList();
 
-        // 1. Create new instance
         Entity newEnt = typeIdx switch
         {
             0 => new Wall(_level),
@@ -270,7 +319,6 @@ public sealed class EditorScreen : IScreen
             _ => new Wall(_level),
         };
 
-        // 2. Swap in level
         _level.RemoveEntity(oldEnt);
         _level.AddEntity(newEnt);
         newEnt.ReplaceCells(cells);
@@ -332,6 +380,7 @@ public sealed class EditorScreen : IScreen
         _gridView.UpdateLevel(_level);
         _selectedEntity = null;
         _lastPaintCell = null;
+        _isDirty = true;
     }
 
     private void DrawGridLines()
@@ -388,6 +437,7 @@ public sealed class EditorScreen : IScreen
         LevelXml.Save(_level, path);
         _levelPath = path;
         _engine.RegisterRecentLevel(path);
+        _isDirty = false;
     }
 
     private bool IsKeyPressed(KeyboardState current, Keys key) =>

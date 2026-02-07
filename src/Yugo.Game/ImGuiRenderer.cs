@@ -154,15 +154,21 @@ public class ImGuiRenderer
         );
 
         _graphicsDevice.SetVertexBuffer(_vertexBuffer);
+
         _graphicsDevice.Indices = _indexBuffer;
+
         _graphicsDevice.RasterizerState = _rasterizerState;
 
         // CRITICAL: Set states for UI rendering
+
         _graphicsDevice.BlendState = BlendState.AlphaBlend;
+
         _graphicsDevice.DepthStencilState = DepthStencilState.None;
-        _graphicsDevice.SamplerStates[0] = SamplerState.AnisotropicClamp;
+
+        _graphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
 
         int vtxOffset = 0;
+
         int idxOffset = 0;
 
         for (int n = 0; n < drawData.CmdListsCount; n++)
