@@ -16,7 +16,6 @@ public sealed class Engine : Microsoft.Xna.Framework.Game
     private readonly GraphicsDeviceManager _graphics;
     private SpriteBatch _spriteBatch = null!;
     private Texture2D _pixel = null!;
-    private SpriteFont _uiFont = null!;
     private readonly List<string> _recentLevels;
     private IScreen _currentScreen = null!;
     private ImGuiRenderer _imGuiRenderer = null!;
@@ -40,7 +39,6 @@ public sealed class Engine : Microsoft.Xna.Framework.Game
 
     public SpriteBatch SpriteBatch => _spriteBatch;
     public Texture2D Pixel => _pixel;
-    public SpriteFont UiFont => _uiFont;
     public ImGuiRenderer ImGuiRenderer => _imGuiRenderer;
 
     protected override void LoadContent()
@@ -48,7 +46,6 @@ public sealed class Engine : Microsoft.Xna.Framework.Game
         _spriteBatch = new SpriteBatch(GraphicsDevice);
         _pixel = new Texture2D(GraphicsDevice, 1, 1);
         _pixel.SetData([Color.White]);
-        _uiFont = Content.Load<SpriteFont>("Fonts/UiFont");
 
         SnapshotFactory.EnsureRegistered(typeof(Engine).Assembly);
         SnapshotFactory.EnsureRegistered(typeof(Level).Assembly);
