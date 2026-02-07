@@ -1,0 +1,82 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build for ${{ matrix.platform }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - platform: windows
+            rid: win-x64
+            script: ./scripts/publish_win.sh
+            artifact: Yugo-Windows.zip
+            dist: publish/windows
+          - platform: macos
+            rid: osx-arm64
+            script: ./scripts/publish_mac.sh
+            artifact: Yugo-MacOS.zip
+            dist: publish/mac/Yugo.app
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Make scripts executable
+        run: chmod +x scripts/*.sh
+
+      - name: Run Publish Script
+        run: ${{ matrix.script }}
+
+      - name: Create Zip (Windows)
+        if: matrix.platform == 'windows'
+        run: |
+          cd publish/windows
+          zip -r ../../Yugo-Windows.zip .
+
+      - name: Create Zip (MacOS)
+        if: matrix.platform == 'macos'
+        run: |
+          cd publish/mac
+          zip -r ../../Yugo-MacOS.zip Yugo.app
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-build
+          path: ${{ matrix.artifact }}
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/Yugo-Windows.zip
+            artifacts/Yugo-MacOS.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

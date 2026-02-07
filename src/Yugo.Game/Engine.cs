@@ -17,7 +17,7 @@ public sealed class Engine : Microsoft.Xna.Framework.Game
     private SpriteBatch _spriteBatch = null!;
     private Texture2D _pixel = null!;
     private SpriteFont _uiFont = null!;
-    private readonly List<string> _recentLevels = new();
+    private readonly List<string> _recentLevels;
     private IScreen _currentScreen = null!;
     private ImGuiRenderer _imGuiRenderer = null!;
 
@@ -27,6 +27,7 @@ public sealed class Engine : Microsoft.Xna.Framework.Game
             throw new InvalidOperationException("Engine singleton already created.");
 
         Instance = this;
+        _recentLevels = PersistentSettings.LoadRecentLevels();
         _graphics = new GraphicsDeviceManager(this);
         Content.RootDirectory = "Content";
         IsMouseVisible = true;
@@ -133,6 +134,8 @@ public sealed class Engine : Microsoft.Xna.Framework.Game
         _recentLevels.Insert(0, levelPath);
         if (_recentLevels.Count > 10)
             _recentLevels.RemoveRange(10, _recentLevels.Count - 10);
+
+        PersistentSettings.SaveRecentLevels(_recentLevels);
     }
 
     private static Level CreateNewLevel()

@@ -1,69 +1,68 @@
 # GEMINI.md - Project Context: Yugo
 
 ## Project Overview
-**Yugo** is a grid-based puzzle game engine built with **C# (.NET 10.0)** and **MonoGame**. The core gameplay revolves around moving and merging colored blocks ("Movable" entities) driven by gravity and adjacency rules.
+**Yugo** is a grid-based puzzle game engine built with **C# (.NET 10.0)** and **MonoGame**. The game features a unique mechanics system driven by gravity, recursive push propagation, and adjacency-based merging.
 
 ### Key Technologies
 - **Framework:** MonoGame (DesktopGL)
-- **UI System:** Dear ImGui (via `ImGui.NET`)
-- **Game Logic:** Grid-based simulation with recursive push propagation and gravity stability loops.
-- **Serialization:** XML-based level loading/saving and snapshot-based Undo/Redo system.
-- **Testing:** xUnit for core logic verification.
+- **UI System:** Dear ImGui (via `ImGui.NET`) with custom high-performance renderer.
+- **Logic:** Grid-based simulation with gravity and recursive push logic.
+- **Persistence:** JSON-based cross-platform settings and XML level serialization.
+- **CI/CD:** GitHub Actions for automated multi-platform releases.
 
 ## Architecture
 The project is divided into three main components:
 
-1.  **`src/Yugo.Core`**: Standalone logic library.
-    - `Grid`: 2D coordinate container.
-    - `Level`: Simulation controller (Gravity, History, Stability).
-    - `LevelState`: Encapsulates logic for capturing and applying level snapshots via `SnapshotFactory`.
-    - `Entities`: `Movable` (colored blocks) and `Wall` (static obstacles).
-    - `Rules`: `IMergeRule` (adjacency-based merging) and `IWinRule` (victory conditions).
+1.  **`src/Yugo.Core`**: The logical heart.
+    - `Level`: Main simulation controller.
+    - `ClusterEntity`: Base class for colored entities (`Movable`, `Piston`), managing `ClusterId`.
+    - `Piston`: Specialized entity with axis-locked movement and boundary growth logic.
+    - `ClusterMergeRule`: Unified adjacency merging with priority (Piston > Movable).
+    - `LevelState`: Snapshot management for Undo/Redo via `SnapshotFactory`.
 
-2.  **`src/Yugo.Game`**: MonoGame application.
-    - `ImGuiRenderer`: Custom manual integration for ImGui rendering using unsafe vertex buffer synchronization.
-    - `GridView`: Handles coordinate translation between screen space and grid space, supporting viewport offsets.
-    - `Screens`: Implements `IScreen` for navigation (`MenuScreen`, `EditorScreen`, `Scene`).
-    - `Renderers`: Dedicated `IRenderer` implementations for different entity types.
+2.  **`src/Yugo.Game`**: Visual front-end.
+    - `ImGuiRenderer`: Manual integration using `unsafe` memory copying and `LinearClamp` sampling for sharp UI.
+    - `GridView`: Handles viewport offsets and coordinate translation for dual-sidebar layouts.
+    - `Screens`: `EditorScreen` (Object-based Inspector mode), `MenuScreen` (Clean floating UI), `Scene` (Gameplay).
+    - `PersistentSettings`: Handles cross-platform data storage (AppData/Application Support).
 
-3.  **`tests/Yugo.Core.Tests`**: Logic and serialization unit tests.
+3.  **`tests/Yugo.Core.Tests`**: Logic verification.
 
 ## Building and Running
 
 ### Prerequisites
 - .NET 10.0 SDK
-- MonoGame dependencies (SDL2, etc.)
+- SDL2 (bundled with MonoGame)
 
 ### Key Commands
 - **Build All:** `dotnet build`
 - **Run Game:** `dotnet run --project src/Yugo.Game`
 - **Run Tests:** `dotnet test`
-- **Format Code:** `dotnet format` (uses Csharpier via pre-commit)
+- **Publish (Win):** `./scripts/publish_win.sh`
+- **Publish (Mac):** `./scripts/publish_mac.sh`
 
 ## Development Conventions
 
-### Coding Style
-- **Nullable & Implicit Usings:** Enabled and strictly enforced.
-- **Unsafe Code:** Allowed in `Yugo.Game` for high-performance ImGui data copying.
-- **Formatting:** Code MUST be formatted using `csharpier` (enforced via pre-commit hooks).
+### Editor "Object Mode"
+- Interaction is based on the **Selected Entity**. 
+- **Left Click**: Add cell to selected entity.
+- **Right Click**: Remove cell from selected entity.
+- **Properties Panel**: Used for entity type conversion and attribute editing (ClusterId, Axis).
 
-### UI Development (ImGui)
-- **Immediate Mode:** UI logic resides in `IScreen.DrawGui()`.
-- **Layout Safety:** Use `io.WantCaptureMouse` to prevent clicking through UI elements onto the game grid.
-- **Theme:** Currently uses `ImGui.StyleColorsLight()` to match the game's aesthetic.
+### UI Implementation
+- **Sharpness**: Always snap window positions to integers and use `LinearClamp` to avoid text blur.
+- **Interactive Safety**: Check `io.WantCaptureMouse` before processing grid clicks.
+- **Highlighting**: Use `RenderUtil.GetHighlightedColor()` (mix with white) for selected/hovered entities. No outlines.
 
-### Logic vs. Rendering
-- **Decoupling:** All gameplay mechanics MUST reside in `Yugo.Core`. 
-- **Grid Offset:** When adding UI panels (like the Editor Sidebar), update the `GridView` with a restricted rectangle to avoid overlapping game elements.
-- **Stability:** After any interaction, the level must call `RunUntilStable()` to process physics and rules.
-
-### Serialization
-- Use `[TypeId("id", "Name")]` for all serializable entities and rules.
-- State management should use `LevelState.Capture(level)` and `state.Apply(level)`.
+### Logic Consistency
+- **Core-only Physics**: No gameplay logic allowed in `Yugo.Game`.
+- **Default Cluster**: All `ClusterEntity` instances must default to `ClusterId = 1`.
 
 ## Roadmap
 - [x] Migrate UI from Gum to ImGui.
-- [x] Implement professional level editor with resizing and confirmation safety.
-- [ ] Add Undo/Redo visual buttons in `Scene` (Gameplay).
-- [ ] Implement more complex entity types (e.g., rotators).
-- [ ] Sound system integration.
+- [x] Implement 'Object Mode' editor with Entity List.
+- [x] Implement Piston mechanism.
+- [x] Cross-platform persistence and automated publishing.
+- [ ] Add Undo/Redo visual buttons in Gameplay.
+- [ ] Implement advanced entities (Teleporters, Rotators).
+- [ ] Sound & Music integration.
