@@ -29,6 +29,11 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 # Move files
 cp -r "$PUBLISH_DIR/"* "$APP_BUNDLE/Contents/MacOS/"
 
+# Copy Icon if exists
+if [ -f "src/Yugo.Game/Icon.icns" ]; then
+    cp "src/Yugo.Game/Icon.icns" "$APP_BUNDLE/Contents/Resources/Icon.icns"
+fi
+
 # Rename executable to match APP_NAME
 mv "$APP_BUNDLE/Contents/MacOS/Yugo.Game" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 
