@@ -14,10 +14,12 @@ public sealed class WallRenderer : IRenderer
 
     public void Render()
     {
+        var highlighted = _scene.GetHighlightedEntity();
         var color = new Color(50, 50, 50);
         foreach (var wall in _scene.Level.Entities.OfType<Wall>())
         {
-            _scene.DrawEntity(wall.OccupiedCells, color);
+            var drawColor = wall == highlighted ? RenderUtil.GetHighlightedColor(color) : color;
+            _scene.DrawEntity(wall.OccupiedCells, drawColor);
         }
     }
 }

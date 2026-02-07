@@ -57,7 +57,7 @@ public class LevelBasicsTests
     }
 
     [Fact]
-    public void MovableMergeRule_MergesAdjacentClusters()
+    public void ClusterMergeRule_MergesAdjacentClusters()
     {
         var level = CreateLevel(4, 2);
         var a = new Movable(level, [new Point(0, 0)], 1);
@@ -65,7 +65,7 @@ public class LevelBasicsTests
         level.AddEntity(a);
         level.AddEntity(b);
 
-        var rule = new MovableMergeRule();
+        var rule = new ClusterMergeRule();
         ((IMergeRule)rule).Apply(level);
 
         Assert.Single(level.Entities.OfType<Movable>());

@@ -46,7 +46,6 @@ public class ImGuiRenderer
         var context = ImGui.CreateContext();
         ImGui.SetCurrentContext(context);
 
-        ImGui.LoadIniSettingsFromMemory("");
         ImGui.StyleColorsLight();
 
         _rasterizerState = new RasterizerState
@@ -64,7 +63,6 @@ public class ImGuiRenderer
             VertexColorEnabled = true,
         };
 
-        // Initialize font texture with a placeholder to satisfy nullable check
         _fontTexture = new Texture2D(_graphicsDevice, 1, 1);
         RebuildFontAtlas();
     }
@@ -86,7 +84,7 @@ public class ImGuiRenderer
         _fontTexture = new Texture2D(_graphicsDevice, width, height, false, SurfaceFormat.Color);
         _fontTexture.SetData(pixelData);
 
-        io.Fonts.SetTexID((IntPtr)_fontTexture.GetHashCode());
+        io.Fonts.SetTexID((IntPtr)1);
         io.Fonts.ClearTexData();
     }
 
@@ -140,7 +138,7 @@ public class ImGuiRenderer
 
     private void RenderDrawData(ImDrawDataPtr drawData)
     {
-        if (drawData.TotalVtxCount == 0 || _vertexBuffer == null || _indexBuffer == null)
+        if (drawData.TotalVtxCount == 0)
             return;
 
         UpdateBuffers(drawData);
@@ -159,6 +157,11 @@ public class ImGuiRenderer
         _graphicsDevice.Indices = _indexBuffer;
         _graphicsDevice.RasterizerState = _rasterizerState;
 
+        // CRITICAL: Set states for UI rendering
+        _graphicsDevice.BlendState = BlendState.AlphaBlend;
+        _graphicsDevice.DepthStencilState = DepthStencilState.None;
+        _graphicsDevice.SamplerStates[0] = SamplerState.AnisotropicClamp;
+
         int vtxOffset = 0;
         int idxOffset = 0;
 
@@ -168,14 +171,18 @@ public class ImGuiRenderer
             for (int i = 0; i < cmdList.CmdBuffer.Size; i++)
             {
                 var cmd = cmdList.CmdBuffer[i];
+                if (cmd.UserCallback != IntPtr.Zero)
+                    continue;
 
-                _graphicsDevice.ScissorRectangle = new Rectangle(
-                    Math.Clamp((int)cmd.ClipRect.X, 0, viewport.Width),
-                    Math.Clamp((int)cmd.ClipRect.Y, 0, viewport.Height),
-                    Math.Clamp((int)(cmd.ClipRect.Z - cmd.ClipRect.X), 0, viewport.Width),
-                    Math.Clamp((int)(cmd.ClipRect.W - cmd.ClipRect.Y), 0, viewport.Height)
-                );
+                int sx = (int)Math.Max(cmd.ClipRect.X, 0);
+                int sy = (int)Math.Max(cmd.ClipRect.Y, 0);
+                int sw = (int)Math.Min(cmd.ClipRect.Z - cmd.ClipRect.X, viewport.Width - sx);
+                int sh = (int)Math.Min(cmd.ClipRect.W - cmd.ClipRect.Y, viewport.Height - sy);
 
+                if (sw <= 0 || sh <= 0)
+                    continue;
+
+                _graphicsDevice.ScissorRectangle = new Rectangle(sx, sy, sw, sh);
                 _effect.Texture = _fontTexture;
 
                 foreach (var pass in _effect.CurrentTechnique.Passes)
@@ -221,29 +228,25 @@ public class ImGuiRenderer
             );
         }
 
-        int vtxTotalSize = drawData.TotalVtxCount * vtxSize;
-        int idxTotalSize = drawData.TotalIdxCount * sizeof(ushort);
-
-        if (_vertexData.Length < vtxTotalSize)
-            _vertexData = new byte[vtxTotalSize];
-        if (_indexData.Length < idxTotalSize)
-            _indexData = new byte[idxTotalSize];
-
         int vtxByteOffset = 0;
         int idxByteOffset = 0;
 
         for (int n = 0; n < drawData.CmdListsCount; n++)
         {
             var cmdList = drawData.CmdLists[n];
+            int vtxListByteSize = cmdList.VtxBuffer.Size * vtxSize;
+            int idxListByteSize = cmdList.IdxBuffer.Size * sizeof(ushort);
 
-            int vtxListSize = cmdList.VtxBuffer.Size * vtxSize;
-            int idxListSize = cmdList.IdxBuffer.Size * sizeof(ushort);
+            if (_vertexData.Length < vtxByteOffset + vtxListByteSize)
+                Array.Resize(ref _vertexData, (vtxByteOffset + vtxListByteSize) * 2);
+            if (_indexData.Length < idxByteOffset + idxListByteSize)
+                Array.Resize(ref _indexData, (idxByteOffset + idxListByteSize) * 2);
 
-            Marshal.Copy(cmdList.VtxBuffer.Data, _vertexData, vtxByteOffset, vtxListSize);
-            Marshal.Copy(cmdList.IdxBuffer.Data, _indexData, idxByteOffset, idxListSize);
+            Marshal.Copy(cmdList.VtxBuffer.Data, _vertexData, vtxByteOffset, vtxListByteSize);
+            Marshal.Copy(cmdList.IdxBuffer.Data, _indexData, idxByteOffset, idxListByteSize);
 
-            vtxByteOffset += vtxListSize;
-            idxByteOffset += idxListSize;
+            vtxByteOffset += vtxListByteSize;
+            idxByteOffset += idxListByteSize;
         }
 
         _vertexBuffer.SetData(_vertexData, 0, vtxByteOffset);

@@ -137,7 +137,7 @@ public sealed class Engine : Microsoft.Xna.Framework.Game
 
     private static Level CreateNewLevel()
     {
-        var mergeRules = new IMergeRule[] { new MovableMergeRule() };
+        var mergeRules = new IMergeRule[] { new ClusterMergeRule() };
         var winRules = new IWinRule[] { new MovableWinRule() };
         return new Level(30, 18, mergeRules, winRules);
     }

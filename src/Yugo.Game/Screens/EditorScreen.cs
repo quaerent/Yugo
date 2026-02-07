@@ -17,9 +17,8 @@ public sealed class EditorScreen : IScreen
     private MouseState _previousMouse;
     private KeyboardState _previousKeyboard;
     private Point? _lastPaintCell;
-    private Tool _tool = Tool.Wall;
-    private int _clusterId = 1;
 
+    private Entity? _selectedEntity;
     private int _newWidth = 30;
     private int _newHeight = 18;
     private bool _showResizeWarning = false;
@@ -45,29 +44,35 @@ public sealed class EditorScreen : IScreen
             SaveLevel();
 
         var viewport = _engine.GraphicsDevice.Viewport;
-        // Adjust grid area to avoid the ImGui sidebar
-        _gridView.Update(new Rectangle(250, 0, viewport.Width - 250, viewport.Height));
+        _gridView.Update(new Rectangle(300, 0, viewport.Width - 300, viewport.Height));
 
         var io = ImGui.GetIO();
         if (!io.WantCaptureMouse)
         {
             var leftDown = mouse.LeftButton == ButtonState.Pressed;
             var rightDown = mouse.RightButton == ButtonState.Pressed;
+            var cell = _gridView.ScreenToCell(mouse.Position);
 
-            if (leftDown || rightDown)
+            if (_selectedEntity != null && cell.HasValue && (leftDown || rightDown))
             {
-                var cell = _gridView.ScreenToCell(mouse.Position);
-                if (
-                    cell.HasValue
-                    && (!_lastPaintCell.HasValue || _lastPaintCell.Value != cell.Value)
-                )
+                if (!_lastPaintCell.HasValue || _lastPaintCell.Value != cell.Value)
                 {
-                    if (rightDown)
-                        EraseCell(cell.Value);
+                    if (leftDown)
+                        AddCellToEntity(_selectedEntity, cell.Value);
                     else
-                        ApplyTool(cell.Value);
+                        RemoveCellFromEntity(_selectedEntity, cell.Value);
                     _lastPaintCell = cell.Value;
                 }
+            }
+            else if (
+                mouse.LeftButton == ButtonState.Pressed
+                && _previousMouse.LeftButton == ButtonState.Released
+            )
+            {
+                if (cell.HasValue)
+                    _selectedEntity = _level.Grid[cell.Value];
+                else
+                    _selectedEntity = null;
             }
             else
             {
@@ -77,6 +82,33 @@ public sealed class EditorScreen : IScreen
 
         _previousMouse = mouse;
         _previousKeyboard = keyboard;
+    }
+
+    private void AddCellToEntity(Entity entity, Point cell)
+    {
+        if (entity.OccupiedCells.Contains(cell))
+            return;
+        var occupant = _level.Grid[cell];
+        if (occupant != null && occupant != entity)
+            RemoveCellFromEntity(occupant, cell);
+        entity.ReplaceCells(entity.OccupiedCells.Append(cell));
+    }
+
+    private void RemoveCellFromEntity(Entity entity, Point cell)
+    {
+        if (!entity.OccupiedCells.Contains(cell))
+            return;
+        var remaining = entity.OccupiedCells.Where(p => p != cell).ToList();
+        if (remaining.Count == 0)
+        {
+            _level.RemoveEntity(entity);
+            if (_selectedEntity == entity)
+                _selectedEntity = null;
+        }
+        else
+        {
+            entity.ReplaceCells(remaining);
+        }
     }
 
     public void Render()
@@ -89,79 +121,183 @@ public sealed class EditorScreen : IScreen
     {
         var viewport = _engine.GraphicsDevice.Viewport;
         ImGui.SetNextWindowPos(System.Numerics.Vector2.Zero);
-        ImGui.SetNextWindowSize(new System.Numerics.Vector2(250, viewport.Height));
+        ImGui.SetNextWindowSize(new System.Numerics.Vector2(300, viewport.Height));
 
         if (
             ImGui.Begin(
-                "Editor Tools",
+                "Inspector",
                 ImGuiWindowFlags.NoMove | ImGuiWindowFlags.NoResize | ImGuiWindowFlags.NoCollapse
             )
         )
         {
-            ImGui.Text(
-                string.IsNullOrWhiteSpace(_levelPath) ? "NEW LEVEL" : Path.GetFileName(_levelPath)
-            );
+            DrawHeader();
             ImGui.Separator();
-            ImGui.Spacing();
 
-            if (ImGui.Button("SAVE (S)", new System.Numerics.Vector2(-1, 30)))
-                SaveLevel();
-            if (ImGui.Button("EXIT (Esc)", new System.Numerics.Vector2(-1, 30)))
-                _engine.LoadMenu();
+            if (ImGui.CollapsingHeader("Properties", ImGuiTreeNodeFlags.DefaultOpen))
+                DrawProperties();
 
             ImGui.Spacing();
-            ImGui.Separator();
-            ImGui.Text("LEVEL PROPERTIES");
-            ImGui.InputInt("Width", ref _newWidth);
-            ImGui.InputInt("Height", ref _newHeight);
-            _newWidth = MathHelper.Clamp(_newWidth, 5, 100);
-            _newHeight = MathHelper.Clamp(_newHeight, 5, 100);
-
-            if (ImGui.Button("RESIZE LEVEL", new System.Numerics.Vector2(-1, 30)))
-            {
-                if (_level.Entities.Count > 0)
-                    _showResizeWarning = true;
-                else
-                    PerformResize();
-            }
+            if (ImGui.CollapsingHeader("Level Settings", ImGuiTreeNodeFlags.DefaultOpen))
+                DrawLevelSettings();
 
             ImGui.Spacing();
-            ImGui.Separator();
-            ImGui.Text("TOOL SELECTION");
-
-            int toolIdx = (int)_tool;
-            string[] toolNames = ["Wall", "Movable", "Erase"];
-            if (ImGui.Combo("Tool", ref toolIdx, toolNames, toolNames.Length))
-            {
-                _tool = (Tool)toolIdx;
-            }
-
-            if (_tool == Tool.Movable)
-            {
-                ImGui.InputInt("Cluster ID", ref _clusterId);
-                _clusterId = MathHelper.Clamp(_clusterId, 1, 99);
-            }
-
-            ImGui.Spacing();
-            ImGui.Separator();
-            ImGui.TextDisabled("Status:");
-            ImGui.TextUnformatted(
-                _tool switch
-                {
-                    Tool.Wall => "Placing Walls",
-                    Tool.Movable => $"Placing Cluster {_clusterId}",
-                    _ => "Erasing",
-                }
-            );
+            if (ImGui.CollapsingHeader("Entities", ImGuiTreeNodeFlags.DefaultOpen))
+                DrawEntityList();
 
             ImGui.End();
         }
+        DrawResizeModal();
+    }
 
-        if (_showResizeWarning)
+    private void DrawHeader()
+    {
+        ImGui.TextUnformatted(
+            string.IsNullOrWhiteSpace(_levelPath) ? "NEW LEVEL" : Path.GetFileName(_levelPath)
+        );
+        if (ImGui.Button("SAVE", new System.Numerics.Vector2(135, 30)))
+            SaveLevel();
+        ImGui.SameLine();
+        if (ImGui.Button("EXIT", new System.Numerics.Vector2(135, 30)))
+            _engine.LoadMenu();
+    }
+
+    private void DrawEntityList()
+    {
+        if (ImGui.Button("ADD ENTITY", new System.Numerics.Vector2(-1, 30)))
         {
-            ImGui.OpenPopup("Confirm Resize");
+            var newEnt = new Wall(_level);
+            _level.AddEntity(newEnt);
+            _selectedEntity = newEnt;
         }
 
+        ImGui.Spacing();
+        if (ImGui.BeginChild("List", new System.Numerics.Vector2(-1, 250), ImGuiChildFlags.None))
+        {
+            for (int i = 0; i < _level.Entities.Count; i++)
+            {
+                var ent = _level.Entities[i];
+                string label = $"[{i}] {GetEntityName(ent)}";
+                if (ImGui.Selectable(label, _selectedEntity == ent))
+                    _selectedEntity = ent;
+            }
+            ImGui.EndChild();
+        }
+    }
+
+    private string GetEntityName(Entity ent)
+    {
+        return ent switch
+        {
+            Wall => "Wall",
+            Movable => "Movable",
+            Piston => "Piston",
+            _ => "Unknown",
+        };
+    }
+
+    private void DrawProperties()
+    {
+        if (_selectedEntity == null)
+        {
+            ImGui.TextDisabled("No entity selected.");
+            return;
+        }
+
+        var ent = _selectedEntity;
+
+        // 1. Type Selection (Converts the CURRENT entity)
+        int typeIdx = GetEntityTypeIndex(ent);
+        string[] types = ["Wall", "Movable", "Piston"];
+        if (ImGui.Combo("Entity Type", ref typeIdx, types, types.Length))
+        {
+            ConvertSelectedEntity(typeIdx);
+            return; // Exit early as _selectedEntity has changed
+        }
+
+        ImGui.Separator();
+        ImGui.Spacing();
+
+        // 2. Specific Properties
+        if (ent is ClusterEntity ce)
+        {
+            int cId = ce.ClusterId;
+            if (ImGui.SliderInt("Cluster ID", ref cId, 1, 9))
+                ce.ClusterId = cId;
+        }
+
+        if (ent is Piston p)
+        {
+            int axisIdx = (int)p.Axis;
+            string[] axes = ["Horizontal", "Vertical"];
+            if (ImGui.Combo("Axis", ref axisIdx, axes, axes.Length))
+                p.Axis = (Piston.Orientation)axisIdx;
+        }
+
+        ImGui.Spacing();
+        ImGui.Separator();
+        if (ImGui.Button("DELETE ENTITY", new System.Numerics.Vector2(-1, 30)))
+        {
+            _level.RemoveEntity(ent);
+            _selectedEntity = null;
+        }
+    }
+
+    private int GetEntityTypeIndex(Entity ent)
+    {
+        return ent switch
+        {
+            Wall => 0,
+            Movable => 1,
+            Piston => 2,
+            _ => 0,
+        };
+    }
+
+    private void ConvertSelectedEntity(int typeIdx)
+    {
+        if (_selectedEntity == null)
+            return;
+
+        var oldEnt = _selectedEntity;
+        var cells = oldEnt.OccupiedCells.ToList();
+
+        // 1. Create new instance
+        Entity newEnt = typeIdx switch
+        {
+            0 => new Wall(_level),
+            1 => new Movable(_level),
+            2 => new Piston(_level),
+            _ => new Wall(_level),
+        };
+
+        // 2. Swap in level
+        _level.RemoveEntity(oldEnt);
+        _level.AddEntity(newEnt);
+        newEnt.ReplaceCells(cells);
+
+        _selectedEntity = newEnt;
+    }
+
+    private void DrawLevelSettings()
+    {
+        ImGui.InputInt("W", ref _newWidth);
+        ImGui.InputInt("H", ref _newHeight);
+        _newWidth = Math.Clamp(_newWidth, 5, 100);
+        _newHeight = Math.Clamp(_newHeight, 5, 100);
+
+        if (ImGui.Button("RESIZE LEVEL", new System.Numerics.Vector2(-1, 30)))
+        {
+            if (_level.Entities.Count > 0)
+                _showResizeWarning = true;
+            else
+                PerformResize();
+        }
+    }
+
+    private void DrawResizeModal()
+    {
+        if (_showResizeWarning)
+            ImGui.OpenPopup("Confirm Resize");
         if (
             ImGui.BeginPopupModal(
                 "Confirm Resize",
@@ -172,11 +308,8 @@ public sealed class EditorScreen : IScreen
         {
             ImGui.TextColored(
                 new System.Numerics.Vector4(1, 0, 0, 1),
-                "WARNING: RESIZE WILL CLEAR ALL ENTITIES!"
+                "WARNING: THIS WILL CLEAR ALL ENTITIES!"
             );
-            ImGui.Text("Are you sure you want to proceed?");
-            ImGui.Separator();
-
             if (ImGui.Button("CONFIRM", new System.Numerics.Vector2(120, 0)))
             {
                 PerformResize();
@@ -195,13 +328,9 @@ public sealed class EditorScreen : IScreen
 
     private void PerformResize()
     {
-        var mergeRules = _level.MergeRules;
-        var winRules = _level.WinRules;
-        var newLevel = new Level(_newWidth, _newHeight, mergeRules, winRules);
-
-        _level = newLevel;
-        _gridView.UpdateLevel(newLevel);
-
+        _level = new Level(_newWidth, _newHeight, _level.MergeRules, _level.WinRules);
+        _gridView.UpdateLevel(_level);
+        _selectedEntity = null;
         _lastPaintCell = null;
     }
 
@@ -229,88 +358,24 @@ public sealed class EditorScreen : IScreen
 
     private void DrawEntities()
     {
-        foreach (var wall in _level.Entities.OfType<Wall>())
-            _gridView.DrawEntity(wall.OccupiedCells, new Color(60, 60, 60));
-        foreach (var movable in _level.Entities.OfType<Movable>())
-            _gridView.DrawEntity(
-                movable.OccupiedCells,
-                RenderUtil.GetClusterColor(movable.ClusterId)
-            );
+        foreach (var entity in _level.Entities)
+        {
+            Color baseColor = GetEntityBaseColor(entity);
+            if (entity == _selectedEntity)
+                baseColor = RenderUtil.GetHighlightedColor(baseColor);
+            _gridView.DrawEntity(entity.OccupiedCells, baseColor);
+        }
     }
 
-    private void ApplyTool(Point cell)
+    private Color GetEntityBaseColor(Entity ent)
     {
-        if (_tool == Tool.Erase)
-        {
-            EraseCell(cell);
-            return;
-        }
-
-        // Only erase the specific cell from the existing entity
-        EraseCell(cell);
-
-        MergeIntoExisting(cell, _tool);
-    }
-
-    private void MergeIntoExisting(Point cell, Tool tool)
-    {
-        var neighbors = FindAdjacentEntities(cell, tool).ToList();
-        if (neighbors.Count == 0)
-        {
-            if (tool == Tool.Wall)
-                _level.AddEntity(new Wall(_level, [cell]));
-            else
-                _level.AddEntity(new Movable(_level, [cell], _clusterId));
-            return;
-        }
-        var baseEntity = neighbors[0];
-        var merged = new HashSet<Point>(baseEntity.OccupiedCells) { cell };
-        foreach (var entity in neighbors.Skip(1))
-        {
-            foreach (var p in entity.OccupiedCells)
-                merged.Add(p);
-            _level.RemoveEntity(entity);
-        }
-        baseEntity.ReplaceCells(merged);
-    }
-
-    private IEnumerable<Entity> FindAdjacentEntities(Point cell, Tool tool)
-    {
-        var found = new HashSet<Entity>();
-        foreach (
-            var offset in new[]
-            {
-                new Point(1, 0),
-                new Point(-1, 0),
-                new Point(0, 1),
-                new Point(0, -1),
-            }
-        )
-        {
-            var neighbor = cell + offset;
-            if (!_level.Grid.IsInside(neighbor))
-                continue;
-            var occupant = _level.Grid[neighbor];
-            if (occupant == null || found.Contains(occupant))
-                continue;
-            if (tool == Tool.Wall && occupant is Wall)
-                found.Add(occupant);
-            else if (tool == Tool.Movable && occupant is Movable m && m.ClusterId == _clusterId)
-                found.Add(occupant);
-        }
-        return found;
-    }
-
-    private void EraseCell(Point cell)
-    {
-        var occupant = _level.Grid[cell];
-        if (occupant == null)
-            return;
-        var remaining = occupant.OccupiedCells.Where(p => p != cell).ToList();
-        if (remaining.Count == 0)
-            _level.RemoveEntity(occupant);
-        else
-            occupant.ReplaceCells(remaining);
+        if (ent is Wall)
+            return new Color(60, 60, 60);
+        if (ent is ClusterEntity ce)
+            return RenderUtil.GetClusterColor(ce.ClusterId);
+        if (ent is Piston)
+            return RenderUtil.GetClusterColor(100);
+        return Color.Gray;
     }
 
     private void SaveLevel()
@@ -327,11 +392,4 @@ public sealed class EditorScreen : IScreen
 
     private bool IsKeyPressed(KeyboardState current, Keys key) =>
         current.IsKeyDown(key) && !_previousKeyboard.IsKeyDown(key);
-
-    private enum Tool
-    {
-        Wall,
-        Movable,
-        Erase,
-    }
 }

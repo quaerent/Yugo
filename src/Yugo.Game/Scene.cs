@@ -5,6 +5,7 @@ using Yugo.Core.Entities;
 using Yugo.Core.Game;
 using Yugo.Core.Serialization;
 using Yugo.Game.Renderer;
+using Yugo.Game.Renderers;
 using Yugo.Game.Screens;
 
 namespace Yugo.Game;
@@ -38,6 +39,7 @@ public sealed class Scene : IScreen
             new GridRenderer(this),
             new WallRenderer(this),
             new MovableRenderer(this),
+            new PistonRenderer(this),
         };
     }
 
@@ -46,6 +48,30 @@ public sealed class Scene : IScreen
     public GridMetrics CurrentGridMetrics => _gridView.Metrics;
     public Engine Engine => _engine;
     public EndState CurrentEndState => _endState;
+
+    public Entity? GetHighlightedEntity()
+    {
+        // 1. If dragging, only highlight the dragged entity
+
+        if (_dragEntity != null)
+            return _dragEntity;
+
+        // 2. Otherwise, highlight the entity under the mouse if it's a Movable
+
+        var mouse = Mouse.GetState();
+
+        var cell = ScreenToCell(mouse.Position);
+
+        if (cell.HasValue)
+        {
+            var ent = _level.Grid[cell.Value];
+
+            if (ent is Movable)
+                return ent;
+        }
+
+        return null;
+    }
 
     public void Update(GameTime gameTime)
     {

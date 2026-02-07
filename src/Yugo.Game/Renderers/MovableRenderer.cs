@@ -14,9 +14,14 @@ public sealed class MovableRenderer : IRenderer
 
     public void Render()
     {
+        var highlighted = _scene.GetHighlightedEntity();
         foreach (var movable in _scene.Level.Entities.OfType<Movable>())
         {
             var color = RenderUtil.GetClusterColor(movable.ClusterId);
+            if (movable == highlighted)
+            {
+                color = RenderUtil.GetHighlightedColor(color);
+            }
             _scene.DrawEntity(movable.OccupiedCells, color);
         }
     }

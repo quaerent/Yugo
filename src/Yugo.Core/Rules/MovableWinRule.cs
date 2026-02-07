@@ -14,7 +14,7 @@ public class MovableWinRule : IWinRule
     public WinRuleResult IsSatisfied(Level level)
     {
         var appearedClusterIds = new HashSet<int>();
-        foreach (var entity in level.Entities.OfType<Movable>())
+        foreach (var entity in level.Entities.OfType<ClusterEntity>())
         {
             if (appearedClusterIds.Contains(entity.ClusterId))
                 return WinRuleResult.NotSatisfied;

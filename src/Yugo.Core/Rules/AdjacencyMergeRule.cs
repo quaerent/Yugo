@@ -10,10 +10,13 @@ public abstract class AdjacencyMergeRule<EntityType> : IMergeRule
     /// <summary>
     /// Determines whether two entities are mergeable according to this rule.
     /// </summary>
-    /// <param name="a">The first entity to check.</param>
-    /// <param name="b">The second entity to check.</param>
-    /// <returns>True if the two entities are mergeable according to this rule; otherwise, false.</returns>
     protected abstract bool IsMergeable(EntityType a, EntityType b);
+
+    /// <summary>
+    /// Determines the priority of an entity during merging.
+    /// Higher priority entities will become the root of the merge.
+    /// </summary>
+    protected virtual int GetPriority(EntityType entity) => 0;
 
     private EntityType? GetEntity(Grid grid, Point point)
     {
@@ -32,19 +35,27 @@ public abstract class AdjacencyMergeRule<EntityType> : IMergeRule
             if (entity == null)
                 continue;
 
-            var rightEntity = GetEntity(level.Grid, new Point(point.X + 1, point.Y));
-            var downEntity = GetEntity(level.Grid, new Point(point.X, point.Y + 1));
-            if (rightEntity != null && rightEntity != entity && IsMergeable(entity, rightEntity))
-                graph.AddEdge(entity, rightEntity);
-            if (downEntity != null && downEntity != entity && IsMergeable(entity, downEntity))
-                graph.AddEdge(entity, downEntity);
+            var neighbors = new[]
+            {
+                new Point(point.X + 1, point.Y),
+                new Point(point.X, point.Y + 1),
+            };
+
+            foreach (var neighborPos in neighbors)
+            {
+                var neighbor = GetEntity(level.Grid, neighborPos);
+                if (neighbor != null && neighbor != entity && IsMergeable(entity, neighbor))
+                {
+                    graph.AddEdge(entity, neighbor, GetPriority);
+                }
+            }
         }
 
         var entitiesToRemove = new HashSet<Entity>();
         foreach (var entity in level.Entities.OfType<EntityType>().Where(e => !e.Dead))
         {
             var root = graph.Find(entity);
-            if (root != entity)
+            if (!ReferenceEquals(root, entity))
             {
                 entitiesToRemove.Add(entity);
                 root.OccupiedCellsInternal.AddRange(entity.OccupiedCells);
@@ -68,22 +79,24 @@ public abstract class AdjacencyMergeRule<EntityType> : IMergeRule
 
         public T Find(T item)
         {
-            var parent = _parents.GetValueOrDefault(item, item);
-            if (!parent.Equals(item))
-            {
-                parent = Find(parent);
-                _parents[item] = parent;
-            }
+            if (!_parents.TryGetValue(item, out var parent) || ReferenceEquals(parent, item))
+                return item;
+
+            parent = Find(parent);
+            _parents[item] = parent;
             return parent;
         }
 
-        public void AddEdge(T a, T b)
+        public void AddEdge(T a, T b, Func<T, int> priorityFunc)
         {
             var rootA = Find(a);
             var rootB = Find(b);
-            if (!rootA.Equals(rootB))
+            if (!ReferenceEquals(rootA, rootB))
             {
-                _parents[rootB] = rootA;
+                if (priorityFunc(rootB) > priorityFunc(rootA))
+                    _parents[rootA] = rootB;
+                else
+                    _parents[rootB] = rootA;
             }
         }
     }

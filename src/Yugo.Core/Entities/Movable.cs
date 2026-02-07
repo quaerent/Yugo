@@ -6,12 +6,10 @@ namespace Yugo.Core.Entities;
 
 [TypeId("movable", "Movable Block")]
 public class Movable(Level level, IEnumerable<Point> occupiedCells, int clusterId)
-    : Entity(level, occupiedCells)
+    : ClusterEntity(level, occupiedCells, clusterId)
 {
-    public int ClusterId = clusterId;
-
     public Movable(Level level)
-        : this(level, [], -1) { }
+        : this(level, [], 1) { }
 
     public override void OnClick() { }
 
@@ -54,21 +52,5 @@ public class Movable(Level level, IEnumerable<Point> occupiedCells, int clusterI
             Translate(new Point(vec.X * maxFreeMove, vec.Y * maxFreeMove));
             Level.TryPush(this, Level.Gravity);
         }
-    }
-
-    public override void Serialize(Dictionary<string, string> data)
-    {
-        base.Serialize(data);
-        data["clusterId"] = ClusterId.ToString();
-    }
-
-    public override void Deserialize(Dictionary<string, string> data)
-    {
-        base.Deserialize(data);
-        if (!data.TryGetValue("clusterId", out var raw))
-            throw new InvalidOperationException("Missing required field 'clusterId'.");
-        if (!int.TryParse(raw, out var value))
-            throw new InvalidOperationException("Invalid integer for field 'clusterId'.");
-        ClusterId = value;
     }
 }
