@@ -1,8 +1,9 @@
 using Yugo.Core.Game;
+using Yugo.Core.Serialization;
 
 namespace Yugo.Core.Rules;
 
-public interface IMergeRule
+public interface IMergeRule : ISnapshotSerializable
 {
     /// <summary>
     /// Applies the merge rule to the specified level.

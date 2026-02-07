@@ -30,6 +30,15 @@ public class Level(
         Entities.Add(entity);
     }
 
+    public void RemoveEntity(Entity entity)
+    {
+        if (!Entities.Contains(entity))
+            return;
+
+        entity.ReplaceCells([]);
+        Entities.Remove(entity);
+    }
+
     public void TryPush(Entity entity, Direction dir)
     {
         if (entity.Dead)
@@ -126,7 +135,7 @@ public class Level(
     public void Start()
     {
         RunUntilStable();
-        _initialState ??= CaptureState();
+        _initialState ??= LevelState.Capture(this);
     }
 
     /// <summary>
@@ -161,7 +170,7 @@ public class Level(
         if (_history.Count == 0)
             return;
 
-        ApplyState(_history.Pop());
+        _history.Pop().Apply(this);
     }
 
     public void Retry()
@@ -170,7 +179,7 @@ public class Level(
             return;
 
         PushHistory();
-        ApplyState(_initialState);
+        _initialState.Apply(this);
     }
 
     private void RunUntilStable()
@@ -241,67 +250,6 @@ public class Level(
 
     private void PushHistory()
     {
-        _history.Push(CaptureState());
-    }
-
-    private LevelState CaptureState()
-    {
-        SnapshotFactory.EnsureRegistered(typeof(Level).Assembly);
-        var mergeSnapshots = MergeRules
-            .OfType<ISnapshotSerializable>()
-            .Select(r => new Snapshot(TypeIdAttribute.GetId(r.GetType()), SerializeRule(r)))
-            .ToList();
-        var winSnapshots = WinRules
-            .OfType<ISnapshotSerializable>()
-            .Select(r => new Snapshot(TypeIdAttribute.GetId(r.GetType()), SerializeRule(r)))
-            .ToList();
-        var entitySnapshots = Entities.Select(e => e.Snapshot()).ToList();
-        return new LevelState(Gravity, mergeSnapshots, winSnapshots, entitySnapshots);
-    }
-
-    private void ApplyState(LevelState state)
-    {
-        foreach (var point in Grid.Points())
-        {
-            Grid[point] = null;
-        }
-
-        Entities.Clear();
-        Gravity = state.Gravity;
-
-        SnapshotFactory.EnsureRegistered(typeof(Level).Assembly);
-        MergeRules = state
-            .MergeRules.Select(s =>
-            {
-                var created = SnapshotFactory.Create<ISnapshotSerializable>(s);
-                return created as IMergeRule
-                    ?? throw new InvalidOperationException(
-                        $"Type '{s.TypeId}' is not a merge rule."
-                    );
-            })
-            .ToList();
-        WinRules = state
-            .WinRules.Select(s =>
-            {
-                var created = SnapshotFactory.Create<ISnapshotSerializable>(s);
-                return created as IWinRule
-                    ?? throw new InvalidOperationException($"Type '{s.TypeId}' is not a win rule.");
-            })
-            .ToList();
-
-        foreach (var snapshot in state.Entities)
-        {
-            var created = SnapshotFactory.Create<ISnapshotSerializable>(snapshot, this);
-            if (created is not Entity entity)
-                throw new InvalidOperationException($"Type '{snapshot.TypeId}' is not an Entity.");
-            Entities.Add(entity);
-        }
-    }
-
-    private static Dictionary<string, string> SerializeRule(ISnapshotSerializable rule)
-    {
-        var data = new Dictionary<string, string>();
-        rule.Serialize(data);
-        return data;
+        _history.Push(LevelState.Capture(this));
     }
 }

@@ -31,6 +31,11 @@ public abstract class Entity : ISnapshotSerializable
         UpdateOccupiedCells(occupiedCells);
     }
 
+    public void ReplaceCells(IEnumerable<Point> newCells)
+    {
+        UpdateOccupiedCells(newCells);
+    }
+
     /// <summary>
     /// Updates the occupied cells of the entity.
     /// </summary>
@@ -172,18 +177,6 @@ public abstract class Entity : ISnapshotSerializable
     /// Updates the entity's state.
     /// </summary>
     public abstract void Update();
-
-    public Snapshot Snapshot()
-    {
-        var data = new Dictionary<string, string>();
-        Serialize(data);
-        return new Snapshot(TypeIdAttribute.GetId(GetType()), data);
-    }
-
-    public void ApplySnapshot(Snapshot snapshot)
-    {
-        Deserialize(snapshot.Data);
-    }
 
     public virtual void Serialize(Dictionary<string, string> data)
     {

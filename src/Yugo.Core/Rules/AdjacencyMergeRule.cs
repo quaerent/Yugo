@@ -1,11 +1,10 @@
 using Microsoft.Xna.Framework;
 using Yugo.Core.Entities;
 using Yugo.Core.Game;
-using Yugo.Core.Serialization;
 
 namespace Yugo.Core.Rules;
 
-public abstract class AdjacencyMergeRule<EntityType> : MergeRuleBase
+public abstract class AdjacencyMergeRule<EntityType> : IMergeRule
     where EntityType : Entity
 {
     /// <summary>
@@ -23,7 +22,7 @@ public abstract class AdjacencyMergeRule<EntityType> : MergeRuleBase
         return grid[point] as EntityType;
     }
 
-    public override void Apply(Level level)
+    void IMergeRule.Apply(Level level)
     {
         var graph = new AdjacencyGraph<EntityType>();
 
@@ -57,6 +56,10 @@ public abstract class AdjacencyMergeRule<EntityType> : MergeRuleBase
         }
         level.Entities.RemoveAll(entitiesToRemove.Contains);
     }
+
+    public void Serialize(Dictionary<string, string> data) { }
+
+    public void Deserialize(Dictionary<string, string> data) { }
 
     private class AdjacencyGraph<T>
         where T : notnull

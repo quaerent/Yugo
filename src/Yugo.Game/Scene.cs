@@ -5,14 +5,12 @@ using Yugo.Core.Entities;
 using Yugo.Core.Game;
 using Yugo.Core.Serialization;
 using Yugo.Game.Renderer;
+using Yugo.Game.Screens;
 
 namespace Yugo.Game;
 
-public sealed class Scene
+public sealed class Scene : IScreen
 {
-    private const int MinHalfUnitPixels = 6;
-    private const int MarginPixels = 16;
-
     private readonly Engine _engine;
     private Level _level;
     private MouseState _previousMouse;
@@ -22,8 +20,9 @@ public sealed class Scene
     private bool _dragConsumed;
     private Entity? _dragEntity;
     private EndState _endState = EndState.None;
-    private GridMetrics _gridMetrics;
     private readonly string _levelPath;
+    private readonly List<IRenderer> _renderers;
+    private GridView _gridView;
 
     public Scene(Engine engine, string levelPath)
     {
@@ -32,8 +31,9 @@ public sealed class Scene
         _level = LevelXml.Load(levelPath);
         _level.Start();
         UpdateEndState();
+        _gridView = new GridView(engine, _level);
 
-        Renderers = new List<IRenderer>
+        _renderers = new List<IRenderer>
         {
             new GridRenderer(this),
             new WallRenderer(this),
@@ -41,14 +41,22 @@ public sealed class Scene
         };
     }
 
-    public IReadOnlyList<IRenderer> Renderers { get; }
+    public IReadOnlyList<IRenderer> Renderers => _renderers;
     public Level Level => _level;
-    public GridMetrics CurrentGridMetrics => _gridMetrics;
+    public GridMetrics CurrentGridMetrics => _gridView.Metrics;
     public Engine Engine => _engine;
     public EndState CurrentEndState => _endState;
 
     public void Update(GameTime gameTime)
     {
+        var keyboard = Keyboard.GetState();
+        if (IsKeyPressed(keyboard, Keys.Escape) && _previousKeyboard.IsKeyUp(Keys.Escape))
+        {
+            _engine.LoadMenu();
+            _previousKeyboard = keyboard;
+            return;
+        }
+
         if (_endState == EndState.None)
             HandleInput();
         UpdateEndState();
@@ -56,16 +64,21 @@ public sealed class Scene
 
     public void Render()
     {
-        _gridMetrics = GetGridMetrics();
-        foreach (var renderer in Renderers)
+        _gridView.Update();
+        foreach (var renderer in _renderers)
         {
             renderer.Render();
         }
     }
 
+    public void DrawGui()
+    {
+        // Add gameplay UI here (Undo/Retry buttons, etc.)
+    }
+
     public void DrawRect(Rectangle rect, Color color)
     {
-        _engine.SpriteBatch.Draw(_engine.Pixel, rect, color);
+        _gridView.DrawRect(rect, color);
     }
 
     public void DrawLine(Point from, Point to, int thickness, Color color)
@@ -92,52 +105,17 @@ public sealed class Scene
 
     public Rectangle CellToRect(Point cell)
     {
-        var origin = _gridMetrics.Origin;
-        var halfUnitPixels = _gridMetrics.HalfUnitPixels;
-        var x = origin.X + cell.X * halfUnitPixels;
-        var y = origin.Y - (cell.Y + 1) * halfUnitPixels;
-        return new Rectangle(x, y, halfUnitPixels, halfUnitPixels);
+        return _gridView.CellToRect(cell);
     }
 
     public void DrawEntity(IEnumerable<Point> cells, Color color)
     {
-        var cellSet = cells as HashSet<Point> ?? [.. cells];
-        foreach (var cell in cellSet)
-        {
-            var rect = CellToRect(cell);
-
-            var insetLeft = cellSet.Contains(new Point(cell.X - 1, cell.Y)) ? 0 : 1;
-            var insetUp = cellSet.Contains(new Point(cell.X, cell.Y + 1)) ? 0 : 1;
-
-            var x = rect.X + insetLeft;
-            var y = rect.Y + insetUp;
-            var width = rect.Width - insetLeft;
-            var height = rect.Height - insetUp;
-
-            if (width <= 0 || height <= 0)
-                continue;
-
-            DrawRect(new Rectangle(x, y, width, height), color);
-        }
+        _gridView.DrawEntity(cells, color);
     }
 
     public Point? ScreenToCell(Point screen)
     {
-        var origin = _gridMetrics.Origin;
-        var gridWidth = _gridMetrics.GridWidth;
-        var gridHeight = _gridMetrics.GridHeight;
-        var halfUnitPixels = _gridMetrics.HalfUnitPixels;
-
-        if (screen.X < origin.X || screen.X >= origin.X + gridWidth)
-            return null;
-        if (screen.Y > origin.Y || screen.Y <= origin.Y - gridHeight)
-            return null;
-
-        var x = (screen.X - origin.X) / halfUnitPixels;
-        var y = (origin.Y - screen.Y - 1) / halfUnitPixels;
-
-        var cell = new Point(x, y);
-        return _level.Grid.IsInside(cell) ? cell : null;
+        return _gridView.ScreenToCell(screen);
     }
 
     private void HandleInput()
@@ -175,7 +153,7 @@ public sealed class Scene
         {
             var dx = mouse.X - _dragStartScreen.X;
             var dy = mouse.Y - _dragStartScreen.Y;
-            var threshold = _gridMetrics.HalfUnitPixels * 2;
+            var threshold = _gridView.Metrics.HalfUnitPixels * 2;
 
             if (Math.Abs(dx) >= threshold || Math.Abs(dy) >= threshold)
             {
@@ -215,32 +193,11 @@ public sealed class Scene
         return current.IsKeyDown(key) && !_previousKeyboard.IsKeyDown(key);
     }
 
-    private GridMetrics GetGridMetrics()
-    {
-        var viewport = _engine.GraphicsDevice.Viewport;
-        var availableWidth = Math.Max(1, viewport.Width - MarginPixels * 2);
-        var availableHeight = Math.Max(1, viewport.Height - MarginPixels * 2);
-
-        var halfUnitPixels = Math.Max(
-            MinHalfUnitPixels,
-            Math.Min(availableWidth / _level.Grid.Width, availableHeight / _level.Grid.Height)
-        );
-
-        var gridWidth = _level.Grid.Width * halfUnitPixels;
-        var gridHeight = _level.Grid.Height * halfUnitPixels;
-
-        var origin = new Point(
-            (viewport.Width - gridWidth) / 2,
-            (viewport.Height + gridHeight) / 2
-        );
-
-        return new GridMetrics(origin, halfUnitPixels, gridWidth, gridHeight);
-    }
-
     public void ReloadLevel()
     {
         _level = LevelXml.Load(_levelPath);
         _level.Start();
+        _gridView = new GridView(_engine, _level);
         _dragStartCell = null;
         _dragConsumed = false;
         _dragEntity = null;
@@ -259,13 +216,6 @@ public sealed class Scene
             return;
         }
     }
-
-    public readonly record struct GridMetrics(
-        Point Origin,
-        int HalfUnitPixels,
-        int GridWidth,
-        int GridHeight
-    );
 
     public enum EndState
     {

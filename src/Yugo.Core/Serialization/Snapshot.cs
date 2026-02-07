@@ -50,8 +50,7 @@ public sealed record Snapshot(string TypeId, Dictionary<string, string> Data);
 /// </summary>
 public static class SnapshotFactory
 {
-    private static readonly Dictionary<string, HashSet<Type>> Registry = new();
-    private static bool _initialized;
+    private static readonly Dictionary<string, HashSet<Type>> Registry = [];
 
     /// <summary>
     /// Ensures that all types with the TypeIdAttribute in the given assembly are registered.
@@ -59,9 +58,6 @@ public static class SnapshotFactory
     /// <param name="assembly"></param>
     public static void EnsureRegistered(Assembly assembly)
     {
-        if (_initialized)
-            return;
-
         foreach (var type in assembly.GetTypes())
         {
             var attr = type.GetCustomAttribute<TypeIdAttribute>();
@@ -73,8 +69,6 @@ public static class SnapshotFactory
 
             Registry[attr.Id].Add(type);
         }
-
-        _initialized = true;
     }
 
     /// <summary>
@@ -99,6 +93,18 @@ public static class SnapshotFactory
             }
         }
         return result;
+    }
+
+    /// <summary>
+    /// Creates a snapshot representation of the given object, which must implement ISnapshotSerializable.
+    /// </summary>
+    /// <param name="obj">The object to create a snapshot of.</param>
+    /// <returns>A snapshot representing the serialized state of the object.</returns>
+    public static Snapshot Snapshot(ISnapshotSerializable obj)
+    {
+        var data = new Dictionary<string, string>();
+        obj.Serialize(data);
+        return new Snapshot(TypeIdAttribute.GetId(obj.GetType()), data);
     }
 
     /// <summary>

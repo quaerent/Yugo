@@ -5,9 +5,13 @@ using Yugo.Core.Serialization;
 namespace Yugo.Core.Rules;
 
 [TypeId("win-movable", "Movable Win")]
-public class MovableWinRule : WinRuleBase
+public class MovableWinRule : IWinRule
 {
-    public override WinRuleResult IsSatisfied(Level level)
+    public void Deserialize(Dictionary<string, string> data) { }
+
+    public void Serialize(Dictionary<string, string> data) { }
+
+    public WinRuleResult IsSatisfied(Level level)
     {
         var appearedClusterIds = new HashSet<int>();
         foreach (var entity in level.Entities.OfType<Movable>())
@@ -18,4 +22,6 @@ public class MovableWinRule : WinRuleBase
         }
         return WinRuleResult.Satisfied;
     }
+
+    WinRuleResult IWinRule.IsSatisfied(Level level) => IsSatisfied(level);
 }

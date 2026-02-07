@@ -1,8 +1,9 @@
 using Yugo.Core.Game;
+using Yugo.Core.Serialization;
 
 namespace Yugo.Core.Rules;
 
-public interface IWinRule
+public interface IWinRule : ISnapshotSerializable
 {
     /// <summary>
     /// Determines whether the win rule is satisfied for the specified level.

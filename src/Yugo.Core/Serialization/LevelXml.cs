@@ -14,6 +14,51 @@ public static class LevelXml
         return Load(stream, null);
     }
 
+    public static void Save(Level level, string path)
+    {
+        var document = new XDocument(ToXElement(level));
+        document.Save(path);
+    }
+
+    public static XElement ToXElement(Level level)
+    {
+        SnapshotFactory.EnsureRegistered(typeof(LevelXml).Assembly);
+        SnapshotFactory.EnsureRegistered(typeof(Level).Assembly);
+
+        var root = new XElement(
+            "level",
+            new XAttribute("width", level.Grid.Width),
+            new XAttribute("height", level.Grid.Height),
+            new XAttribute("gravity", level.Gravity.ToString())
+        );
+
+        var mergeElement = new XElement("merge");
+        foreach (var rule in level.MergeRules)
+        {
+            var snapshot = SnapshotFactory.Snapshot(rule);
+            mergeElement.Add(SnapshotToElement(snapshot));
+        }
+        root.Add(mergeElement);
+
+        var winElement = new XElement("win");
+        foreach (var rule in level.WinRules)
+        {
+            var snapshot = SnapshotFactory.Snapshot(rule);
+            winElement.Add(SnapshotToElement(snapshot));
+        }
+        root.Add(winElement);
+
+        var entitiesElement = new XElement("entities");
+        foreach (var entity in level.Entities)
+        {
+            var snapshot = SnapshotFactory.Snapshot(entity);
+            entitiesElement.Add(SnapshotToElement(snapshot));
+        }
+        root.Add(entitiesElement);
+
+        return root;
+    }
+
     public static Level Load(
         string path,
         Func<int, int, IReadOnlyList<IMergeRule>, IReadOnlyList<IWinRule>, Level> factory
@@ -236,5 +281,15 @@ public static class LevelXml
         if (Enum.TryParse<Direction>(value, true, out var dir))
             return dir;
         throw new InvalidOperationException($"Unknown gravity direction '{value}'.");
+    }
+
+    private static XElement SnapshotToElement(Snapshot snapshot)
+    {
+        var element = new XElement(snapshot.TypeId);
+        foreach (var (key, value) in snapshot.Data)
+        {
+            element.SetAttributeValue(key, value);
+        }
+        return element;
     }
 }
