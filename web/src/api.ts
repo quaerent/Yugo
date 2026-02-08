@@ -26,7 +26,7 @@ export interface ShareLevelPayload {
 
 export interface GameMessage {
   command: string;
-  data?: string;
+  xmlData?: string;
   title?: string;
   cloudId?: number;
   authorId?: number;

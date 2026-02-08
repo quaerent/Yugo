@@ -52,7 +52,7 @@ function App() {
       try {
         const payload = {
           title: msg.title || "Untitled",
-          xmlData: msg.data,
+          xmlData: msg.xmlData,
           authorId: currentUser.id,
         };
         let res;
