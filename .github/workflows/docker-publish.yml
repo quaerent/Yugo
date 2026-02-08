@@ -5,14 +5,10 @@ on:
     branches: [ "main" ]
     tags: [ 'v*' ]
 
-env:
-  # Registry is Docker Hub (default)
-  IMAGE_NAME_BACKEND: quaerent/yugo-backend
-  IMAGE_NAME_FRONTEND: quaerent/yugo-frontend
-
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    if: github.event_name == 'push'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,12 +19,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # BACKEND METADATA
+      # BACKEND
       - name: Extract Backend Metadata
         id: meta-backend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_NAME_BACKEND }}
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/yugo-backend
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=semver,pattern={{version}}
@@ -42,12 +38,12 @@ jobs:
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
 
-      # FRONTEND METADATA
+      # FRONTEND
       - name: Extract Frontend Metadata
         id: meta-frontend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.IMAGE_NAME_FRONTEND }}
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/yugo-frontend
           tags: |
             type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
             type=semver,pattern={{version}}
