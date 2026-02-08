@@ -1,71 +1,51 @@
 # GEMINI.md - Project Context: Yugo
 
 ## Project Overview
-**Yugo** is a grid-based puzzle game engine and ecosystem built with **C# (.NET 10.0)**, **MonoGame**, and **React**. It features a high-fidelity simulation system driven by gravity and a web-based community for level sharing.
+**Yugo** is a grid-based puzzle game engine and ecosystem built with **C# (.NET 10.0)**, **MonoGame**, and **React**. It features a high-fidelity simulation system and a Docker-ready community platform for level sharing.
 
 ### Key Technologies
 - **Framework:** MonoGame (DesktopGL)
-- **Backend:** ASP.NET Core (REST API + TCP Bridge)
+- **Backend:** ASP.NET Core (REST API + WebSocket Bridge)
 - **Frontend:** React + Vite + TailwindCSS v4
-- **UI System:** Dear ImGui (Game)
-- **Logic:** Decoupled core library with `ClusterEntity` inheritance.
-- **Persistence:** SQLite (Server) & JSON (App).
-- **DevOps:** GitHub Actions for automated releases.
+- **Database:** PostgreSQL (Production) / SQLite (Dev)
+- **Deployment:** Docker & GitHub Actions (GHCR)
 
 ## Architecture
 The project is divided into four main components:
 
 1.  **`Yugo.Core`**: The simulation heart.
-    - `Level`: Main simulation controller.
-    - `ClusterEntity`: Base class for `Movable` and `Piston`.
-    - `ClusterMergeRule`: Unified adjacency merging with priority.
-    - `LevelState`: Snapshot-based state management for Undo/Redo.
+    - `LevelIdentity`: Unified object for identifying local/cloud sources.
+    - `LevelState`: Deep value-based state comparison for optimized Undo history.
 
 2.  **`Yugo.Game`**: The visual front-end (App).
-    - `ImGuiRenderer`: High-performance custom UI renderer.
-    - `RemoteService`: Background TCP listener (port 9090) for web-to-app commands.
-    - `Screens`: Editor (Object Mode), Menu, and Scene.
+    - `RemoteService`: WebSocket server supporting "Unlink on Disconnect" auth sync.
+    - `Identity Awareness`: Automatic Read-Only mode for non-owned cloud levels.
 
 3.  **`Yugo.Server`**: ASP.NET Core Backend.
-    - `AuthController`: Simple user authentication (admin-created accounts).
-    - `LevelsController`: Level sharing, downloading, and remote control triggering.
-    - `RemoteAppService`: TCP client for sending commands to the desktop App.
+    - Supports dynamic DB switching (Postgres/SQLite).
+    - Externalized admin configuration via `admin_config.json`.
 
 4.  **`web`**: Vite + React Frontend.
-    - Community dashboard for playing and editing shared levels directly in the App.
+    - Acts as the central communication hub.
+    - Proxies App sync requests to the Server via WebSocket.
 
-## Building and Running
+## DevOps & Deployment
 
-### Prerequisites
-- .NET 10.0 SDK
-- Node.js (for `web` directory)
-- Inno Setup 6 (Windows)
+### GitHub Actions
+- **`docker-publish.yml`**: Builds and pushes `yugo-backend` and `yugo-frontend` to GitHub Packages on every push to `main`.
 
-### Key Commands
-- **Run Game:** `dotnet run --project Yugo.Game`
-- **Run Server:** `dotnet run --project Yugo.Server`
-- **Run Web:** `cd web && npm run dev`
-- **Run Tests:** `dotnet test`
+### Docker Compose
+- Orchesrates PostgreSQL, Backend, and Nginx (Frontend).
+- Handles reverse proxying for `/api` requests.
 
-## Development Conventions
-
-### Editor "Object Mode"
-- **Interaction**: Centered around the **Selected Entity**. 
-- **Left Click**: Add cell / **Right Click**: Remove cell.
-
-### Communication (Web -> App)
-- The Web frontend calls Server APIs, which then send TCP JSON commands to the App on port 9090.
-- Commands: `play_level`, `edit_level`.
-
-### Logic Standards
-- **Strict Decoupling**: Physics MUST stay in `Yugo.Core`.
-- **Formatting**: `csharpier` for C#, `prettier` for TSX (enforced via pre-commit).
+## Key Commands
+- **Dev Start**: `Cmd+Shift+B` (VS Code START FULL SYSTEM task)
+- **Prod Start**: `docker compose up -d`
+- **Format**: `./scripts/format.sh`
 
 ## Roadmap
-- [x] Migrate UI to ImGui.
-- [x] Implement 'Object Mode' editor.
-- [x] Cross-platform persistence and DMG/Setup automation.
-- [x] Web & Server basic architecture + TCP Bridge.
-- [ ] Implement Level sharing upload in App.
-- [ ] Add Undo/Redo UI buttons in Gameplay.
+- [x] Full-stack architecture with WebSocket sync.
+- [x] Dockerization & CI/CD pipeline.
+- [x] Identity-aware permissions and cloud-first saving.
+- [ ] Implement thumbnail generation for cloud levels.
 - [ ] Advanced entities (Teleporters).

@@ -1,0 +1,53 @@
+networks:
+  yugo-net:
+    driver: bridge
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: yugo-db
+    environment:
+      POSTGRES_DB: yugo
+      POSTGRES_USER: yugo_user
+      POSTGRES_PASSWORD: yugo_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - yugo-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U yugo_user -d yugo"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: ghcr.io/quaerent/yugo/yugo-backend:latest
+    container_name: yugo-backend
+    environment:
+      - DB_TYPE=POSTGRES
+      - ConnectionStrings__DefaultConnection=Host=db;Database=yugo;Username=yugo_user;Password=yugo_password
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - yugo-net
+    ports:
+      - "5057:80"
+    volumes:
+      - ./yugo-data:/app/data
+      - ./admin_config.json:/app/admin_config.json
+    restart: always
+
+  frontend:
+    image: ghcr.io/quaerent/yugo/yugo-frontend:latest
+    container_name: yugo-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks:
+      - yugo-net
+    restart: always
+
+volumes:
+  postgres_data:

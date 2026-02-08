@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "http://127.0.0.1:5057/api";
+const API_BASE = import.meta.env.DEV ? "http://127.0.0.1:5057/api" : "/api";
 const WS_URL = "ws://127.0.0.1:9090";
 
 export interface User {
