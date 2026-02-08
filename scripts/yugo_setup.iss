@@ -15,7 +15,7 @@ OutputBaseFilename=Yugo-Setup
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
-SetupIconFile=..\src\Yugo.Game\Icon.ico
+SetupIconFile=..\Yugo.Game\Icon.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
