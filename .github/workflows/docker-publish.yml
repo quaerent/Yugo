@@ -6,34 +6,29 @@ on:
     tags: [ 'v*' ]
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME_BACKEND: ${{ github.repository }}/yugo-backend
-  IMAGE_NAME_FRONTEND: ${{ github.repository }}/yugo-frontend
+  # Registry is Docker Hub (default)
+  IMAGE_NAME_BACKEND: quaerent/yugo-backend
+  IMAGE_NAME_FRONTEND: quaerent/yugo-frontend
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Log in to the Container registry
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # BACKEND METADATA
       - name: Extract Backend Metadata
         id: meta-backend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}
+          images: ${{ env.IMAGE_NAME_BACKEND }}
           flavor: |
             latest=true
           tags: |
@@ -54,7 +49,7 @@ jobs:
         id: meta-frontend
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
+          images: ${{ env.IMAGE_NAME_FRONTEND }}
           flavor: |
             latest=true
           tags: |
