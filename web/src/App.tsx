@@ -293,6 +293,22 @@ function App() {
               </button>
             </div>
           )}
+          <div className="flex bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
+            <a
+              href="/downloads/Yugo-Setup.exe"
+              className="px-3 py-1.5 text-[10px] font-black uppercase rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+              download
+            >
+              WIN
+            </a>
+            <a
+              href="/downloads/Yugo-MacOS.dmg"
+              className="px-3 py-1.5 text-[10px] font-black uppercase rounded text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all"
+              download
+            >
+              MAC
+            </a>
+          </div>
           <button
             onClick={handleLogout}
             className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-[10px] font-black uppercase hover:bg-red-50 hover:text-red-500 transition-all shadow-sm"
