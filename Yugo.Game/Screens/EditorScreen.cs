@@ -20,6 +20,9 @@ public sealed class EditorScreen : IScreen
     private Point? _lastPaintCell;
 
     private Entity? _selectedEntity;
+    private int _templateType = 0; // 0: Wall, 1: Movable, 2: Piston
+    private int _templateClusterId = 1;
+    private Piston.Orientation _templateAxis = Piston.Orientation.Horizontal;
     private int _newWidth = 30;
     private int _newHeight = 18;
     private bool _showResizeWarning = false;
@@ -36,12 +39,6 @@ public sealed class EditorScreen : IScreen
         _gridView = new GridView(engine, level);
         _newWidth = level.Grid.Width;
         _newHeight = level.Grid.Height;
-    }
-
-    public void ConfirmSync(int newCloudId)
-    {
-        _identity = _identity with { CloudId = newCloudId, AuthorId = _engine.CurrentUser?.Id };
-        _isDirty = false;
     }
 
     public void Update(GameTime gameTime)
@@ -88,6 +85,7 @@ public sealed class EditorScreen : IScreen
             )
             {
                 _selectedEntity = cell.HasValue ? _level.Grid[cell.Value] : null;
+                UpdateTemplate();
             }
             else
                 _lastPaintCell = null;
@@ -190,9 +188,8 @@ public sealed class EditorScreen : IScreen
 
     private void DrawHeader()
     {
-        ImGui.TextUnformatted(
-            _identity.IsCloud ? $"CLOUD: {_identity.Title}" : $"LOCAL: {_identity.Title}"
-        );
+        var title = _engine.GetDisplayTitle(_identity);
+        ImGui.TextUnformatted(_identity.IsCloud ? $"CLOUD: {title}" : $"LOCAL: {title}");
         if (!IsReadOnly)
         {
             if (ImGui.Button(_isDirty ? "SAVE*" : "SAVE", new System.Numerics.Vector2(130, 30)))
@@ -207,15 +204,16 @@ public sealed class EditorScreen : IScreen
     {
         if (ImGui.Button("ADD ENTITY", new System.Numerics.Vector2(-1, 30)))
         {
-            Entity newEnt = _selectedEntity switch
+            Entity newEnt = _templateType switch
             {
-                Piston p => new Piston(_level) { ClusterId = p.ClusterId, Axis = p.Axis },
-                Movable m => new Movable(_level) { ClusterId = m.ClusterId },
+                2 => new Piston(_level) { ClusterId = _templateClusterId, Axis = _templateAxis },
+                1 => new Movable(_level) { ClusterId = _templateClusterId },
                 _ => new Wall(_level),
             };
             _level.AddEntity(newEnt);
             _selectedEntity = newEnt;
             _isDirty = true;
+            UpdateTemplate();
         }
         ImGui.Spacing();
         ImGui.Separator();
@@ -223,8 +221,27 @@ public sealed class EditorScreen : IScreen
         {
             var ent = _level.Entities[i];
             if (ImGui.Selectable($"[{i}] {GetEntityName(ent)}", _selectedEntity == ent))
+            {
                 _selectedEntity = ent;
+                UpdateTemplate();
+            }
         }
+    }
+
+    private void UpdateTemplate()
+    {
+        if (_selectedEntity == null)
+            return;
+        _templateType = _selectedEntity switch
+        {
+            Piston => 2,
+            Movable => 1,
+            _ => 0,
+        };
+        if (_selectedEntity is ClusterEntity ce)
+            _templateClusterId = ce.ClusterId;
+        if (_selectedEntity is Piston p)
+            _templateAxis = p.Axis;
     }
 
     private string GetEntityName(Entity ent) =>
@@ -272,6 +289,7 @@ public sealed class EditorScreen : IScreen
             {
                 ce.ClusterId = cId;
                 _isDirty = true;
+                UpdateTemplate();
             }
         }
         if (ent is Piston p)
@@ -281,14 +299,22 @@ public sealed class EditorScreen : IScreen
             {
                 p.Axis = (Piston.Orientation)axisIdx;
                 _isDirty = true;
+                UpdateTemplate();
             }
         }
+        ImGui.Separator();
+        ImGui.PushStyleColor(ImGuiCol.Button, new System.Numerics.Vector4(0.6f, 0.1f, 0.1f, 1));
+        ImGui.PushStyleColor(
+            ImGuiCol.ButtonHovered,
+            new System.Numerics.Vector4(0.8f, 0.1f, 0.1f, 1)
+        );
         if (ImGui.Button("DELETE ENTITY", new System.Numerics.Vector2(-1, 30)))
         {
             _level.RemoveEntity(ent);
             _selectedEntity = null;
             _isDirty = true;
         }
+        ImGui.PopStyleColor(2);
     }
 
     private void DrawCloudSync()
@@ -337,7 +363,7 @@ public sealed class EditorScreen : IScreen
                     new
                     {
                         command = "share_level",
-                        title = _identity.Title,
+                        title = _engine.GetDisplayTitle(_identity),
                         xmlData = xml,
                         cloudId = _identity.CloudId ?? -1,
                     }
@@ -387,6 +413,7 @@ public sealed class EditorScreen : IScreen
         newEnt.ReplaceCells(cells);
         _selectedEntity = newEnt;
         _isDirty = true;
+        UpdateTemplate();
     }
 
     private void DrawLevelSettings()

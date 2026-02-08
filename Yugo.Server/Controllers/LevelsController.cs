@@ -34,11 +34,16 @@ public class LevelsController : ControllerBase
         if (req.AuthorId == 0)
             return BadRequest("System admin cannot own levels.");
 
+        var user = await _db.Users.FindAsync(req.AuthorId);
+        if (user == null)
+            return BadRequest("Author not found.");
+
         var level = new SharedLevel
         {
             Title = req.Title,
             XmlData = req.XmlData,
             AuthorId = req.AuthorId,
+            Author = user,
         };
         _db.SharedLevels.Add(level);
         await _db.SaveChangesAsync();
@@ -48,7 +53,9 @@ public class LevelsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(int id, [FromBody] ShareRequest req)
     {
-        var level = await _db.SharedLevels.FindAsync(id);
+        var level = await _db
+            .SharedLevels.Include(l => l.Author)
+            .FirstOrDefaultAsync(l => l.Id == id);
         if (level == null)
             return NotFound();
 

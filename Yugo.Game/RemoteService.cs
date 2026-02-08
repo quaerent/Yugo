@@ -192,15 +192,6 @@ public sealed class RemoteService : IDisposable
                         )
                 );
             }
-            else if (command == "sync_success")
-            {
-                int newId = doc.RootElement.GetProperty("cloudId").GetInt32();
-                _engine.OnRemoteCommand(() =>
-                {
-                    if (_engine.CurrentScreen is EditorScreen editor)
-                        editor.ConfirmSync(newId);
-                });
-            }
         }
         catch (Exception ex)
         {

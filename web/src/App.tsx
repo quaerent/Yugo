@@ -61,10 +61,21 @@ function App() {
         } else {
           res = await api.shareLevel(payload);
         }
-        gameSocket.confirmSync(res.data.id);
-        loadLevels();
-      } catch {
-        console.error("Cloud Sync failed");
+
+        const listRes = await api.listLevels();
+        const updatedLevels = listRes.data;
+        setLevels(updatedLevels);
+
+        // Push full list update to game
+        gameSocket.syncCloudList(updatedLevels);
+
+        // Find the saved level in the updated list to get full author info
+        const savedLevel = updatedLevels.find((l) => l.id === res.data.id);
+        if (savedLevel) {
+          gameSocket.edit(savedLevel);
+        }
+      } catch (e) {
+        console.error("Cloud Sync failed", e);
       }
     },
     [loadLevels],

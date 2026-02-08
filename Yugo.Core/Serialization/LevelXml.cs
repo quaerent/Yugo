@@ -190,8 +190,6 @@ public static class LevelXml
         else
         {
             var cells = element.Elements("cell").Select(ParseCellElement).ToList();
-            if (cells.Count == 0)
-                throw new InvalidOperationException("Entity must define at least one cell.");
             data["cells"] = SnapshotHelpers.SerializeCells(cells);
         }
 
@@ -214,9 +212,6 @@ public static class LevelXml
             return ParseCellsAttribute(cellsAttribute);
 
         var cells = element.Elements("cell").Select(ParseCellElement).ToList();
-        if (cells.Count == 0)
-            throw new InvalidOperationException("Entity must define at least one cell.");
-
         return cells;
     }
 
@@ -239,8 +234,6 @@ public static class LevelXml
                 throw new InvalidOperationException($"Invalid cell coordinates '{token}'.");
             cells.Add(new Point(x, y));
         }
-        if (cells.Count == 0)
-            throw new InvalidOperationException("Entity must define at least one cell.");
         return cells;
     }
 
