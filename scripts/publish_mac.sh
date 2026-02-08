@@ -4,7 +4,7 @@ set -euo pipefail
 # Configuration
 PROJECT="src/Yugo.Game/Yugo.Game.csproj"
 APP_NAME="Yugo"
-RID="osx-arm64" # Target Apple Silicon by default
+RID="osx-arm64" 
 PUBLISH_DIR="publish/mac_raw"
 APP_BUNDLE="publish/mac/$APP_NAME.app"
 
@@ -14,13 +14,11 @@ echo "Publishing Yugo for macOS ($RID)..."
 rm -rf "publish/mac"
 rm -rf "$PUBLISH_DIR"
 
-# Publish binary - Using SingleFile to reduce corruption issues
+# Publish binary - Not using SingleFile for macOS bundles as it can cause dylib loading issues
 dotnet publish "$PROJECT" \
     -c Release \
     -r "$RID" \
     --self-contained true \
-    -p:PublishSingleFile=true \
-    -p:IncludeNativeLibrariesForSelfExtract=true \
     -p:PublishReadyToRun=true \
     -o "$PUBLISH_DIR"
 
@@ -28,17 +26,12 @@ dotnet publish "$PROJECT" \
 mkdir -p "$APP_BUNDLE/Contents/MacOS"
 mkdir -p "$APP_BUNDLE/Contents/Resources"
 
-# Move files
+# Move all published files to MacOS folder
 cp -r "$PUBLISH_DIR/"* "$APP_BUNDLE/Contents/MacOS/"
 
 # Copy Icon if exists
 if [ -f "src/Yugo.Game/Icon.icns" ]; then
     cp "src/Yugo.Game/Icon.icns" "$APP_BUNDLE/Contents/Resources/Icon.icns"
-fi
-
-# Rename executable to match APP_NAME if it's not already
-if [ -f "$APP_BUNDLE/Contents/MacOS/Yugo.Game" ]; then
-    mv "$APP_BUNDLE/Contents/MacOS/Yugo.Game" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
 fi
 
 # Create Info.plist
@@ -65,26 +58,18 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
-# CRITICAL: Fix permissions for ALL files in the bundle
-
+# CRITICAL: Fix permissions
 chmod -R +x "$APP_BUNDLE/Contents/MacOS/"
 
-
-
-# Code Signing (Ad-hoc signing)
-
+# Fix dylib paths if codesign is available
 if command -v codesign &> /dev/null; then
-
-    echo "Signing the app bundle..."
-
+    echo "Signing and fixing dylibs..."
+    # Sign all dylibs first
+    find "$APP_BUNDLE/Contents/MacOS/" -name "*.dylib" -exec codesign --force --sign - {} \;
+    # Sign the main app
     codesign --force --deep --sign - "$APP_BUNDLE"
-
 else
-
-    echo "codesign not found, skipping signing (normal if not on macOS)"
-
+    echo "codesign not found, skipping signing"
 fi
-
-
 
 echo "Done! macOS App Bundle available in $APP_BUNDLE"

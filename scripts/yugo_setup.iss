@@ -2,7 +2,7 @@
 #define MyAppName "Yugo"
 #define MyAppVersion "1.0"
 #define MyAppPublisher "Orthopole"
-#define MyAppExeName "Yugo.Game.exe"
+#define MyAppExeName "Yugo.exe"
 
 [Setup]
 AppId={{YUGO-GAME-ENGINE-GUID-1234}}
