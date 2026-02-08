@@ -6,23 +6,9 @@ on:
       - 'v*'
 
 jobs:
-  build:
-    name: Build for ${{ matrix.platform }}
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - platform: windows
-            rid: win-x64
-            script: ./scripts/publish_win.sh
-            artifact: Yugo-Windows.zip
-            dist: publish/windows
-          - platform: macos
-            rid: osx-arm64
-            script: ./scripts/publish_mac.sh
-            artifact: Yugo-MacOS.zip
-            dist: publish/mac/Yugo.app
-
+  build-macos:
+    name: Build for MacOS
+    runs-on: macos-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,33 +18,67 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Make scripts executable
-        run: chmod +x scripts/*.sh
-
       - name: Run Publish Script
-        run: ${{ matrix.script }}
-
-      - name: Create Zip (Windows)
-        if: matrix.platform == 'windows'
         run: |
-          cd publish/windows
-          zip -r ../../Yugo-Windows.zip .
+          chmod +x scripts/*.sh
+          ./scripts/publish_mac.sh
 
-      - name: Create Zip (MacOS)
-        if: matrix.platform == 'macos'
+      - name: Create DMG
         run: |
-          cd publish/mac
-          zip -r ../../Yugo-MacOS.zip Yugo.app
+          brew install create-dmg
+          create-dmg \
+            --volname "Yugo Installer" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --icon "Yugo.app" 200 190 \
+            --hide-extension "Yugo.app" \
+            --app-drop-link 600 185 \
+            "Yugo-MacOS.dmg" \
+            "publish/mac/"
 
-      - name: Upload Artifact
+      - name: Upload MacOS Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}-build
-          path: ${{ matrix.artifact }}
+          name: macos-dmg
+          path: Yugo-MacOS.dmg
+
+  build-windows:
+    name: Build for Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run Publish Script
+        shell: bash
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/publish_win.sh
+
+      - name: Build Installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (!(Test-Path $iscc)) {
+            $iscc = "iscc" # Try from PATH
+          }
+          & $iscc scripts/yugo_setup.iss
+
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-setup
+          path: scripts/Output/Yugo-Setup.exe
 
   release:
     name: Create GitHub Release
-    needs: build
+    needs: [build-macos, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -73,8 +93,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/Yugo-Windows.zip
-            artifacts/Yugo-MacOS.zip
+            artifacts/Yugo-MacOS.dmg
+            artifacts/Yugo-Setup.exe
           draft: false
           prerelease: false
           generate_release_notes: true

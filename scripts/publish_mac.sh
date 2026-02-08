@@ -14,11 +14,13 @@ echo "Publishing Yugo for macOS ($RID)..."
 rm -rf "publish/mac"
 rm -rf "$PUBLISH_DIR"
 
-# Publish binary
+# Publish binary - Using SingleFile to reduce corruption issues
 dotnet publish "$PROJECT" \
     -c Release \
     -r "$RID" \
     --self-contained true \
+    -p:PublishSingleFile=true \
+    -p:IncludeNativeLibrariesForSelfExtract=true \
     -p:PublishReadyToRun=true \
     -o "$PUBLISH_DIR"
 
@@ -34,8 +36,10 @@ if [ -f "src/Yugo.Game/Icon.icns" ]; then
     cp "src/Yugo.Game/Icon.icns" "$APP_BUNDLE/Contents/Resources/Icon.icns"
 fi
 
-# Rename executable to match APP_NAME
-mv "$APP_BUNDLE/Contents/MacOS/Yugo.Game" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+# Rename executable to match APP_NAME if it's not already
+if [ -f "$APP_BUNDLE/Contents/MacOS/Yugo.Game" ]; then
+    mv "$APP_BUNDLE/Contents/MacOS/Yugo.Game" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+fi
 
 # Create Info.plist
 cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
@@ -48,7 +52,7 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
     <key>CFBundleIconFile</key>
     <string>Icon.icns</string>
     <key>CFBundleIdentifier</key>
-    <string>cn.topfyf.yugo</string>
+    <string>com.yugo.game</string>
     <key>CFBundleName</key>
     <string>$APP_NAME</string>
     <key>CFBundlePackageType</key>
@@ -61,7 +65,26 @@ cat > "$APP_BUNDLE/Contents/Info.plist" <<EOF
 </plist>
 EOF
 
-# Set permissions
-chmod +x "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
+# CRITICAL: Fix permissions for ALL files in the bundle
+
+chmod -R +x "$APP_BUNDLE/Contents/MacOS/"
+
+
+
+# Code Signing (Ad-hoc signing)
+
+if command -v codesign &> /dev/null; then
+
+    echo "Signing the app bundle..."
+
+    codesign --force --deep --sign - "$APP_BUNDLE"
+
+else
+
+    echo "codesign not found, skipping signing (normal if not on macOS)"
+
+fi
+
+
 
 echo "Done! macOS App Bundle available in $APP_BUNDLE"
