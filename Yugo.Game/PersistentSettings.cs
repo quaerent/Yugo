@@ -1,14 +1,16 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Yugo.Game;
 
 public record LevelIdentity(
-    string Title,
     string LocalPath,
+    string? Title = null, // Transient for cloud levels
     int? CloudId = null,
     int? AuthorId = null
 )
 {
+    [JsonIgnore]
     public bool IsCloud => CloudId.HasValue;
 }
 
@@ -19,7 +21,7 @@ public static class PersistentSettings
         "Yugo"
     );
 
-    private static readonly string RecentLevelsFile = Path.Combine(AppDataPath, "recent_v3.json");
+    private static readonly string RecentLevelsFile = Path.Combine(AppDataPath, "recent_v4.json");
 
     static PersistentSettings()
     {
@@ -47,7 +49,9 @@ public static class PersistentSettings
     {
         try
         {
-            var json = JsonSerializer.Serialize(levels);
+            // When saving, we can clear Title for cloud levels to ensure they aren't stored
+            var sanitized = levels.Select(l => l.IsCloud ? l with { Title = null } : l).ToList();
+            var json = JsonSerializer.Serialize(sanitized);
             File.WriteAllText(RecentLevelsFile, json);
         }
         catch { }

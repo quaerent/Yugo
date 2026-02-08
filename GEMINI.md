@@ -1,51 +1,36 @@
 # GEMINI.md - Project Context: Yugo
 
 ## Project Overview
-**Yugo** is a grid-based puzzle game engine and ecosystem built with **C# (.NET 10.0)**, **MonoGame**, and **React**. It features a high-fidelity simulation system and a Docker-ready community platform for level sharing.
+**Yugo** is a grid-based puzzle engine and cloud ecosystem. It features a unique "Web-as-the-Brain" architecture where the browser manages identities and metadata, while the desktop App handles simulation and rendering.
 
 ### Key Technologies
-- **Framework:** MonoGame (DesktopGL)
-- **Backend:** ASP.NET Core (REST API + WebSocket Bridge)
-- **Frontend:** React + Vite + TailwindCSS v4
-- **Database:** PostgreSQL (Production) / SQLite (Dev)
-- **Deployment:** Docker & GitHub Actions (GHCR)
+- **Backend:** ASP.NET Core (Virtual Admin Auth + WebSocket Bridge).
+- **Frontend:** React + Vite (Central Message Hub).
+- **Identity:** `LevelIdentity` system with path/id deduplication.
+- **Protocol:** WebSocket with `sync_cloud_list` for transient metadata sync.
 
-## Architecture
-The project is divided into four main components:
+## Architecture & Security
 
-1.  **`Yugo.Core`**: The simulation heart.
-    - `LevelIdentity`: Unified object for identifying local/cloud sources.
-    - `LevelState`: Deep value-based state comparison for optimized Undo history.
+### 1. Unique System Admin
+- **Virtual ID 0**: The `admin` account exists only in memory and config files.
+- **Physical Isolation**: Database contains NO admin data. Admin password cannot be reset via web UI.
+- **Privilege Scope**: Global registry management + User lifecycle control.
 
-2.  **`Yugo.Game`**: The visual front-end (App).
-    - `RemoteService`: WebSocket server supporting "Unlink on Disconnect" auth sync.
-    - `Identity Awareness`: Automatic Read-Only mode for non-owned cloud levels.
+### 2. Transient Metadata Sync
+- **Title Resolution**: Game client (App) does NOT persist cloud level titles.
+- **Heartbeat Sync**: Web frontend pushes a full {ID -> Title} map every 10s.
+- **Result**: Immediate, ecosystem-wide renaming without App-side manual saves.
 
-3.  **`Yugo.Server`**: ASP.NET Core Backend.
-    - Supports dynamic DB switching (Postgres/SQLite).
-    - Externalized admin configuration via `admin_config.json`.
+### 3. Identity-Aware Editor
+- **Read-Only Lock**: Automatically triggered if `Identity.AuthorId` != `Engine.CurrentUser.Id`.
+- **Cloud-First Persistence**: Save button transparently routes to WebSocket proxy for cloud levels.
 
-4.  **`web`**: Vite + React Frontend.
-    - Acts as the central communication hub.
-    - Proxies App sync requests to the Server via WebSocket.
+## Key Protocols
+- `set_user`: Push identity to App on login.
+- `share_level`: App requests Web to proxy save data to Server.
+- `sync_cloud_list`: Periodic full metadata refresh.
+- `update_identity`: Instant title correction signal.
 
-## DevOps & Deployment
-
-### GitHub Actions
-- **`docker-publish.yml`**: Builds and pushes `yugo-backend` and `yugo-frontend` to GitHub Packages on every push to `main`.
-
-### Docker Compose
-- Orchesrates PostgreSQL, Backend, and Nginx (Frontend).
-- Handles reverse proxying for `/api` requests.
-
-## Key Commands
-- **Dev Start**: `Cmd+Shift+B` (VS Code START FULL SYSTEM task)
-- **Prod Start**: `docker compose up -d`
-- **Format**: `./scripts/format.sh`
-
-## Roadmap
-- [x] Full-stack architecture with WebSocket sync.
-- [x] Dockerization & CI/CD pipeline.
-- [x] Identity-aware permissions and cloud-first saving.
-- [ ] Implement thumbnail generation for cloud levels.
-- [ ] Advanced entities (Teleporters).
+## Deployment
+- CI/CD publishes to Docker Hub.
+- Volume mapping for `admin_config.json` allows credential management without redeploy.

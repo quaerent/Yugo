@@ -11,6 +11,5 @@ public class User
 
     [Required]
     public string PasswordHash { get; set; } = string.Empty;
-    public bool IsAdmin { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

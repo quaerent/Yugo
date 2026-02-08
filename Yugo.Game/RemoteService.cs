@@ -152,7 +152,6 @@ public sealed class RemoteService : IDisposable
             {
                 var payload = doc.RootElement.GetProperty("data");
                 string xmlData = payload.GetProperty("data").GetString() ?? "";
-                string title = payload.GetProperty("title").GetString() ?? "Cloud Level";
                 int cloudId = payload.GetProperty("cloudId").GetInt32();
                 int authorId = payload.TryGetProperty("authorId", out var aProp)
                     ? aProp.GetInt32()
@@ -160,17 +159,26 @@ public sealed class RemoteService : IDisposable
 
                 _engine.OnRemoteCommand(() =>
                 {
-                    var tempPath = Path.Combine(Path.GetTempPath(), "yugo_cloud_cache.xml");
-
+                    var tempPath = Path.Combine(Path.GetTempPath(), $"yugo_cloud_{cloudId}.xml");
                     File.WriteAllText(tempPath, xmlData);
-
-                    var identity = new LevelIdentity(title, tempPath, cloudId, authorId);
-
+                    var identity = new LevelIdentity(tempPath, null, cloudId, authorId);
                     if (command == "play_level")
                         _engine.LoadGameplay(identity);
                     else
                         _engine.LoadEditor(identity);
                 });
+            }
+            else if (command == "sync_cloud_list")
+            {
+                var data = doc.RootElement.GetProperty("data");
+                var titles = new Dictionary<int, string>();
+                foreach (var item in data.EnumerateArray())
+                {
+                    int id = item.GetProperty("id").GetInt32();
+                    string title = item.GetProperty("title").GetString() ?? "Cloud Level";
+                    titles[id] = title;
+                }
+                _engine.OnRemoteCommand(() => _engine.SyncCloudTitles(titles));
             }
             else if (command == "set_user")
             {

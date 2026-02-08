@@ -1,45 +1,31 @@
 # Yugo
 
-Yugo 是一个现代网格解谜游戏生态系统，包含受重力驱动的游戏引擎、跨平台桌面 App、以及基于 Web 的关卡分享社区。
+Yugo 是一个现代网格解谜游戏生态系统，包含受重力驱动的游戏引擎、跨平台桌面 App、以及基于 Web 的管理与分享社区。
 
 ## 核心组件
 
-- **Yugo.Core**: 逻辑核心，处理受重力驱动的物理模拟与实体合并。
-- **Yugo.Game**: 基于 MonoGame 和 Dear ImGui 的跨平台桌面 App（支持 Win/Mac）。
-- **Yugo.Server**: ASP.NET Core 后端，提供用户鉴权、关卡存储及 App 远程控制桥接。
-- **web**: 基于 React + TailwindCSS v4 的社区前端，可直接在网页端遥控桌面 App 游玩。
+- **Yugo.Core**: 逻辑核心，处理物理模拟与实体合并。
+- **Yugo.Game**: 跨平台桌面 App，通过 WebSocket 与网页端实时同步身份与数据。
+- **Yugo.Server**: 生产级后端，支持 PostgreSQL 15，实现虚拟管理权限隔离。
+- **web**: 响应式管理前端，充当系统的“通信中心”。
 
-## 快速开始 (本地开发)
+## 账户体系 (唯一管理员)
 
-1. **启动后端服务**: `dotnet run --project Yugo.Server` (默认使用 SQLite)
-2. **启动 Web 前端**: `cd web && npm install && npm run dev`
-3. **启动游戏 App**: `dotnet run --project Yugo.Game`
+本系统采用 **单一根管理员** 架构以确保极致安全性：
+- **admin 账号**: 仅在 `admin_config.json` 中配置，**不存储于数据库**。具备全局关卡监管与用户管理权限。
+- **普通用户**: 由管理员手动创建，具备关卡上传、游玩、及同步编辑权限。
 
-## 生产环境部署 (Docker)
+## 实时同步机制
 
-项目已完全 Docker 化，支持一键部署至云服务器：
+- **全量列表同步**: Web 端定期向 App 推送最新的关卡 ID 与标题映射。App 仅本地存储 ID，确保名称始终与云端同步。
+- **身份联动**: 网页登录后自动将身份注入本地 App，网页关闭后 App 自动注销。
 
-1. **准备配置**: 
-   - 编辑 `admin_config.json` 设置您的管理员用户名和密码。
-2. **一键启动**:
-   ```bash
-   docker compose up -d
-   ```
-   该指令将自动从 GitHub Container Registry 拉取最新镜像，并启动 PostgreSQL 数据库、后端 API 和 Nginx 前端。
+## 快速部署 (Docker)
 
-- **前端地址**: `http://localhost:8080`
-- **后端 API**: `http://localhost:5057`
-
-## 自动化流水线
-每当代码推送到 `main` 分支，GitHub Actions 会自动构建并发布最新的 Docker 镜像至 `ghcr.io/quaerent/yugo`。
-
-## 编辑器交互 (Object Mode)
-- **选择**: 在网格或侧边栏列表选中实体。
-- **绘图**: 选中后，**左键**增加方块，**右键**修剪。
-- **属性**: 实时调整 Cluster ID 或活塞轴向。
-- **云端同步**: 登录后，编辑云端关卡点击 SAVE 即可瞬间同步。
+1. **配置凭据**: 编辑 `admin_config.json`。
+2. **启动**: `docker compose up -d`。
 
 ## 开发规范
 - C# 代码遵循 `csharpier` 格式。
 - TypeScript 代码遵循 `prettier` 格式。
-- 提交前必须通过 pre-commit 钩子检查。
+- 强制使用 `LevelIdentity` 对象进行全链路资产识别。

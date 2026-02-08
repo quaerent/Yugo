@@ -7,6 +7,7 @@ export interface User {
   id: number;
   username: string;
   isAdmin: boolean;
+  password?: string;
 }
 
 export interface SharedLevel {
@@ -46,6 +47,23 @@ export const api = {
 
   deleteLevel: (id: number, authorId: number) =>
     axios.delete(`${API_BASE}/levels/${id}?authorId=${authorId}`),
+
+  // User Management
+  listUsers: (adminId: number) =>
+    axios.get<User[]>(`${API_BASE}/auth/users?adminId=${adminId}`),
+
+  createUser: (adminId: number, data: Omit<User, "id">) =>
+    axios.post(`${API_BASE}/auth/create-user`, { ...data, adminId }),
+
+  updateUser: (adminId: number, id: number, data: Omit<User, "id">) =>
+    axios.put(`${API_BASE}/auth/users/${id}`, {
+      ...data,
+      adminId,
+      password: data.password,
+    }),
+
+  deleteUser: (adminId: number, id: number) =>
+    axios.delete(`${API_BASE}/auth/users/${id}?adminId=${adminId}`),
 };
 
 class GameSocket {
@@ -148,6 +166,17 @@ class GameSocket {
 
   confirmSync(cloudId: number) {
     this.send("sync_success", { cloudId });
+  }
+
+  updateIdentity(cloudId: number, title: string) {
+    this.send("update_identity", { cloudId, title });
+  }
+
+  syncCloudList(levels: SharedLevel[]) {
+    this.send(
+      "sync_cloud_list",
+      levels.map((l) => ({ id: l.id, title: l.title })),
+    );
   }
 
   private send(command: string, data: string | object | null) {

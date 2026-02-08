@@ -111,7 +111,8 @@ public sealed class MenuScreen : IScreen
                     ImGui.PopStyleColor();
 
                     ImGui.SameLine();
-                    string label = id.IsCloud ? $"[C] {id.Title}" : id.Title;
+                    string title = _engine.GetDisplayTitle(id);
+                    string label = id.IsCloud ? $"[C] {title}" : title;
                     if (ImGui.Button($"{label}##btn{i}", new System.Numerics.Vector2(250, 30)))
                     {
                         _engine.LoadGameplay(id);

@@ -18,6 +18,9 @@ public class Engine : Microsoft.Xna.Framework.Game
     private RemoteService _remoteService = null!;
     private readonly System.Collections.Concurrent.ConcurrentQueue<Action> _remoteCommands = new();
 
+    // In-memory cache for cloud level titles synced from Web
+    private readonly Dictionary<int, string> _cloudTitleCache = new();
+
     public record UserInfo(int Id, string Username, bool IsAdmin);
 
     public UserInfo? CurrentUser { get; set; }
@@ -78,11 +81,8 @@ public class Engine : Microsoft.Xna.Framework.Game
         base.Draw(gameTime);
     }
 
-    public void LoadMenu()
-    {
-        var levels = PersistentSettings.LoadRecentLevels();
-        _currentScreen = new MenuScreen(this, levels);
-    }
+    public void LoadMenu() =>
+        _currentScreen = new MenuScreen(this, PersistentSettings.LoadRecentLevels());
 
     public void LoadGameplay(LevelIdentity identity)
     {
@@ -104,7 +104,7 @@ public class Engine : Microsoft.Xna.Framework.Game
             new IMergeRule[] { new ClusterMergeRule() },
             new IWinRule[] { new MovableWinRule() }
         );
-        var identity = new LevelIdentity("New Level", "");
+        var identity = new LevelIdentity("", "New Level");
         _currentScreen = new EditorScreen(this, level, identity);
     }
 
@@ -113,12 +113,9 @@ public class Engine : Microsoft.Xna.Framework.Game
         if (string.IsNullOrEmpty(identity.LocalPath))
             return;
         var list = PersistentSettings.LoadRecentLevels();
-
-        // Remove existing by Path OR by CloudId if available
         list.RemoveAll(e =>
             e.LocalPath == identity.LocalPath || (identity.IsCloud && e.CloudId == identity.CloudId)
         );
-
         list.Insert(0, identity);
         PersistentSettings.SaveRecentLevels(list.Take(10).ToList());
     }
@@ -128,5 +125,25 @@ public class Engine : Microsoft.Xna.Framework.Game
         var list = PersistentSettings.LoadRecentLevels();
         list.RemoveAll(e => e.LocalPath == path);
         PersistentSettings.SaveRecentLevels(list);
+    }
+
+    public string GetDisplayTitle(LevelIdentity identity)
+    {
+        if (identity.IsCloud && identity.CloudId.HasValue)
+        {
+            if (_cloudTitleCache.TryGetValue(identity.CloudId.Value, out var title))
+                return title;
+            return $"Cloud Level #{identity.CloudId}";
+        }
+        return identity.Title ?? Path.GetFileNameWithoutExtension(identity.LocalPath);
+    }
+
+    public void SyncCloudTitles(Dictionary<int, string> titles)
+    {
+        foreach (var (id, title) in titles)
+        {
+            _cloudTitleCache[id] = title;
+        }
+        Console.WriteLine($"[Engine] Synced {titles.Count} cloud titles.");
     }
 }
