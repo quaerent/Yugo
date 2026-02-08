@@ -1,18 +1,36 @@
 repos:
   - repo: local
     hooks:
-      - id: csharpier-check
-        name: csharpier check
-        entry: scripts/lint.sh
+      # Game (C#) hooks
+      - id: game-format-check
+        name: game csharpier check
+        entry: ./scripts/lint.sh
         language: system
+        files: ^(Yugo.Core|Yugo.Game|Yugo.Server|tests)/
         pass_filenames: false
-      - id: csharpier-format
-        name: csharpier format
-        entry: scripts/format.sh
+      - id: game-format
+        name: game csharpier format
+        entry: ./scripts/format.sh
         language: system
+        files: ^(Yugo.Core|Yugo.Game|Yugo.Server|tests)/
         pass_filenames: false
-      - id: dotnet-test
-        name: dotnet test
-        entry: scripts/test.sh
+      - id: game-test
+        name: game dotnet test
+        entry: ./scripts/test.sh
         language: system
+        files: ^(Yugo.Core|Yugo.Game|Yugo.Server|tests)/
+        pass_filenames: false
+
+      # Web (TypeScript/React) hooks
+      - id: web-lint
+        name: web eslint
+        entry: bash -c "cd web && npm run lint"
+        language: system
+        files: ^web/
+        pass_filenames: false
+      - id: web-format
+        name: web prettier
+        entry: bash -c "cd web && npm run format"
+        language: system
+        files: ^web/
         pass_filenames: false

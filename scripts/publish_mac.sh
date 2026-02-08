@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Configuration
-PROJECT="src/Yugo.Game/Yugo.Game.csproj"
+PROJECT="Yugo.Game/Yugo.Game.csproj"
 APP_NAME="Yugo"
 RID="osx-arm64" 
 PUBLISH_DIR="publish/mac_raw"
@@ -30,8 +30,8 @@ mkdir -p "$APP_BUNDLE/Contents/Resources"
 cp -r "$PUBLISH_DIR/"* "$APP_BUNDLE/Contents/MacOS/"
 
 # Copy Icon if exists
-if [ -f "src/Yugo.Game/Icon.icns" ]; then
-    cp "src/Yugo.Game/Icon.icns" "$APP_BUNDLE/Contents/Resources/Icon.icns"
+if [ -f "Yugo.Game/Icon.icns" ]; then
+    cp "Yugo.Game/Icon.icns" "$APP_BUNDLE/Contents/Resources/Icon.icns"
 fi
 
 # Create Info.plist

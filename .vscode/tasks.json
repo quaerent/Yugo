@@ -1,0 +1,85 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Start server",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["run", "--project", "Yugo.Server/Yugo.Server.csproj"],
+      "isBackground": true,
+      "presentation": {
+        "group": "yugo-system",
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": {
+        "pattern": [
+          {
+            "regexp": ".",
+            "file": 1,
+            "location": 2,
+            "message": 3
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*Content root path.*",
+          "endsPattern": "^.*Now listening on.*"
+        }
+      }
+    },
+    {
+      "label": "Start web",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}/web"
+      },
+      "isBackground": true,
+      "presentation": {
+        "group": "yugo-system",
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": {
+        "pattern": [
+          {
+            "regexp": ".",
+            "file": 1,
+            "location": 2,
+            "message": 3
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*VITE.*ready.*",
+          "endsPattern": "^.*Local:.*"
+        }
+      }
+    },
+    {
+      "label": "Start game",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["run", "--project", "Yugo.Game/Yugo.Game.csproj"],
+      "presentation": {
+        "group": "yugo-system",
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": "$msCompile"
+    },
+    {
+      "label": "Start Yugo System",
+      "dependsOn": [
+        "Start server",
+        "Start web",
+        "Start game"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Configuration
-PROJECT="src/Yugo.Game/Yugo.Game.csproj"
+PROJECT="Yugo.Game/Yugo.Game.csproj"
 OUTPUT="publish/windows"
 RID="win-x64"
 

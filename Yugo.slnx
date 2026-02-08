@@ -1,9 +1,6 @@
 <Solution>
-    <Folder Name="/src/">
-        <Project Path="src/Yugo.Core/Yugo.Core.csproj" />
-        <Project Path="src/Yugo.Game/Yugo.Game.csproj" />
-    </Folder>
-    <Folder Name="/tests/">
-        <Project Path="tests/Yugo.Core.Tests/Yugo.Core.Tests.csproj" />
-    </Folder>
+  <Project Path="Yugo.Core/Yugo.Core.csproj" />
+  <Project Path="Yugo.Game/Yugo.Game.csproj" />
+  <Project Path="Yugo.Server/Yugo.Server.csproj" />
+  <Project Path="tests/Yugo.Core.Tests/Yugo.Core.Tests.csproj" />
 </Solution>
