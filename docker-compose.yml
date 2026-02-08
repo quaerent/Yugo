@@ -31,8 +31,6 @@ services:
         condition: service_healthy
     networks:
       - yugo-net
-    ports:
-      - "5057:80"
     volumes:
       - ./yugo-data:/app/data
       - ./admin_config.json:/app/admin_config.json
