@@ -17,6 +17,10 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
 
+# Explicitly set port
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+
 # Create volume for SQLite database
 VOLUME /app/data
 ENV ConnectionStrings__DefaultConnection="Data Source=/app/data/yugo.db"
